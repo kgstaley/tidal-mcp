@@ -374,16 +374,16 @@ def search(session: BrowserSession):
     # Format results
     response = {
         "query": query,
-        "artists": [format_artist_data(a) for a in results.artists] if results.artists else [],
-        "tracks": [format_track_data(t) for t in results.tracks] if results.tracks else [],
-        "albums": [format_album_data(a) for a in results.albums] if results.albums else [],
-        "playlists": [format_playlist_search_data(p) for p in results.playlists] if results.playlists else [],
-        "videos": [format_video_data(v) for v in results.videos] if results.videos else [],
+        "artists": [format_artist_data(a) for a in results.get('artists', [])],
+        "tracks": [format_track_data(t) for t in results.get('tracks', [])],
+        "albums": [format_album_data(a) for a in results.get('albums', [])],
+        "playlists": [format_playlist_search_data(p) for p in results.get('playlists', [])],
+        "videos": [format_video_data(v) for v in results.get('videos', [])],
     }
 
     # Include top hit if available
-    if results.top_hit:
-        top_hit = results.top_hit
+    top_hit = results.get('top_hit')
+    if top_hit:
         top_hit_type = type(top_hit).__name__.lower()
         if top_hit_type == 'artist':
             response["top_hit"] = {"type": "artist", "data": format_artist_data(top_hit)}

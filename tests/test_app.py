@@ -92,15 +92,16 @@ class MockVideo:
         self.duration = 300
 
 
-class MockSearchResults:
-    def __init__(self, include_top_hit=True):
-        self.artists = [MockArtist()]
-        self.tracks = [MockTrack()]
-        self.albums = [MockAlbum()]
-        self.playlists = [MockPlaylist()]
-        self.videos = [MockVideo()]
-        # Don't include top_hit to avoid type name issues in test
-        self.top_hit = None
+def mock_search_results(include_top_hit=False):
+    """Return a dict matching tidalapi.SearchResults TypedDict."""
+    return {
+        'artists': [MockArtist()],
+        'tracks': [MockTrack()],
+        'albums': [MockAlbum()],
+        'playlists': [MockPlaylist()],
+        'videos': [MockVideo()],
+        'top_hit': None,
+    }
 
 
 class TestSearchEndpoint:
@@ -123,7 +124,7 @@ class TestSearchEndpoint:
         """Test successful search."""
         mock_session = MagicMock()
         mock_session.login_session_file_auto.return_value = True
-        mock_session.search.return_value = MockSearchResults()
+        mock_session.search.return_value = mock_search_results()
 
         mocker.patch("app.BrowserSession", return_value=mock_session)
 
@@ -144,7 +145,7 @@ class TestSearchEndpoint:
         """Test search with specific types filter."""
         mock_session = MagicMock()
         mock_session.login_session_file_auto.return_value = True
-        mock_results = MockSearchResults()
+        mock_results = mock_search_results()
         mock_session.search.return_value = mock_results
 
         mocker.patch("app.BrowserSession", return_value=mock_session)
@@ -162,7 +163,7 @@ class TestSearchEndpoint:
         """Test search with custom limit."""
         mock_session = MagicMock()
         mock_session.login_session_file_auto.return_value = True
-        mock_session.search.return_value = MockSearchResults()
+        mock_session.search.return_value = mock_search_results()
 
         mocker.patch("app.BrowserSession", return_value=mock_session)
 
