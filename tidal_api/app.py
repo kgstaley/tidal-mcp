@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify
 from pathlib import Path
 
 from browser_session import BrowserSession
-from utils import format_track_data, bound_limit
+from utils import format_track_data, bound_limit, fetch_all_paginated
 
 app = Flask(__name__)
 token_path = os.path.join(tempfile.gettempdir(), 'tidal-session-oauth.json')
@@ -116,18 +116,24 @@ def get_tracks(session: BrowserSession):
     """
     Get tracks from the user's history.
     """
-    try:        
+    try:
         # TODO: Add streaminig history support if TIDAL API allows it
         # Get user favorites or history (for now limiting to user favorites only)
         favorites = session.user.favorites
-        
-        # Get limit from query parameter, default to 10 if not specified
-        limit = bound_limit(request.args.get('limit', default=10, type=int))
-        
-        tracks = favorites.tracks(limit=limit, order="DATE", order_direction="DESC")        
+
+        # Get limit from query parameter, default to 50 if not specified
+        limit = bound_limit(request.args.get('limit', default=50, type=int))
+
+        # Use pagination to fetch tracks (TIDAL limits to 50 per request)
+        tracks = fetch_all_paginated(
+            lambda limit, offset: favorites.tracks(
+                limit=limit, offset=offset, order="DATE", order_direction="DESC"
+            ),
+            limit=limit
+        )
         track_list = [format_track_data(track) for track in tracks]
 
-        return jsonify({"tracks": track_list})
+        return jsonify({"tracks": track_list, "total": len(track_list)})
     except Exception as e:
         return jsonify({"error": f"Error fetching tracks: {str(e)}"}), 500
     
@@ -334,26 +340,29 @@ def get_playlist_tracks(playlist_id: str, session: BrowserSession):
     Get tracks from a specific TIDAL playlist.
     """
     try:
-        # Get limit from query parameter, default to 100 if not specified
-        limit = bound_limit(request.args.get('limit', default=100, type=int))
-        
+        # Get limit from query parameter, default to 1000 if not specified
+        limit = bound_limit(request.args.get('limit', default=1000, type=int))
+
         # Get the playlist object
         playlist = session.playlist(playlist_id)
         if not playlist:
             return jsonify({"error": f"Playlist with ID {playlist_id} not found"}), 404
-            
-        # Get tracks from the playlist with pagination if needed
-        tracks = playlist.items(limit=limit)
-        
+
+        # Use pagination to fetch tracks (TIDAL limits to 50 per request)
+        tracks = fetch_all_paginated(
+            lambda limit, offset: playlist.items(limit=limit, offset=offset),
+            limit=limit
+        )
+
         # Format track data
         track_list = [format_track_data(track) for track in tracks]
-        
+
         return jsonify({
             "playlist_id": playlist.id,
             "tracks": track_list,
             "total_tracks": len(track_list)
         })
-        
+
     except Exception as e:
         return jsonify({"error": f"Error fetching playlist tracks: {str(e)}"}), 500
     
