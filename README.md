@@ -19,6 +19,7 @@ The LLM filters and curates results using your input, finds similar tracks via T
 
 - 🌟 **Music Recommendations**: Get personalized track recommendations based on your listening history **plus your custom criteria**.
 - ၊၊||၊ **Playlist Management**: Create, view, and manage your TIDAL playlists
+- 📚 **Large Collection Support**: Fetch up to 5000 tracks with automatic pagination (handles TIDAL's 50-item-per-request limit)
 
 ## Quick Start
 
@@ -113,11 +114,11 @@ Once configured, you can interact with your TIDAL account through a LLM by askin
 The TIDAL MCP integration provides the following tools:
 
 - `tidal_login`: Authenticate with TIDAL through browser login flow
-- `get_favorite_tracks`: Retrieve your favorite tracks from TIDAL
+- `get_favorite_tracks`: Retrieve your favorite tracks from TIDAL (default: 50, max: 5000)
 - `recommend_tracks`: Get personalized music recommendations
 - `create_tidal_playlist`: Create a new playlist in your TIDAL account
 - `get_user_playlists`: List all your playlists on TIDAL
-- `get_playlist_tracks`: Retrieve all tracks from a specific playlist
+- `get_playlist_tracks`: Retrieve all tracks from a specific playlist (default: 50, max: 5000)
 - `delete_tidal_playlist`: Delete a playlist from your TIDAL account
 
 ## License
