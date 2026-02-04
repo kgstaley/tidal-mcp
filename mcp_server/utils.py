@@ -3,6 +3,8 @@ import os
 import pathlib
 import shutil
 
+import requests
+
 # Define a configurable port with a default that's less likely to conflict
 DEFAULT_PORT = 5050
 FLASK_PORT = int(os.environ.get("TIDAL_MCP_PORT", DEFAULT_PORT))
@@ -90,3 +92,111 @@ def shutdown_flask_app():
             # If it doesn't terminate in time, force kill it
             flask_process.kill()
         print("TIDAL Flask app shutdown complete")
+
+
+def error_response(message: str) -> dict:
+    """Create standardized error response dict."""
+    return {"status": "error", "message": message}
+
+
+def check_tidal_auth(action: str = "perform this action") -> dict | None:
+    """
+    Check if user is authenticated with TIDAL.
+
+    Args:
+        action: Description of the action requiring authentication
+
+    Returns:
+        Error dict if not authenticated, None if OK
+    """
+    try:
+        auth_check = requests.get(f"{FLASK_APP_URL}/api/auth/status")
+        auth_data = auth_check.json()
+
+        if not auth_data.get("authenticated", False):
+            return error_response(
+                f"You need to login to TIDAL first before you can {action}. "
+                "Please use the tidal_login() function."
+            )
+    except Exception as e:
+        return error_response(f"Failed to check authentication status: {str(e)}")
+
+    return None
+
+
+def handle_api_response(response, resource_name: str, resource_id: str = None) -> dict | None:
+    """
+    Handle common HTTP response patterns from the Flask API.
+
+    Args:
+        response: requests.Response object
+        resource_name: Name of the resource (e.g., "playlist", "track")
+        resource_id: Optional ID of the resource for error messages
+
+    Returns:
+        Error dict if response indicates an error, None if OK (200)
+    """
+    if response.status_code == 200:
+        return None
+
+    if response.status_code == 401:
+        return error_response(
+            "Not authenticated with TIDAL. Please login first using tidal_login()."
+        )
+
+    if response.status_code == 404:
+        id_part = f" with ID {resource_id}" if resource_id else ""
+        return error_response(
+            f"{resource_name.capitalize()}{id_part} not found. "
+            f"Please check the {resource_name} ID and try again."
+        )
+
+    if response.status_code == 403:
+        return error_response(
+            f"Cannot modify this {resource_name} - you can only modify your own {resource_name}s."
+        )
+
+    # Generic error
+    try:
+        error_data = response.json()
+        error_msg = error_data.get("error", "Unknown error")
+    except Exception:
+        error_msg = "Unknown error"
+
+    return error_response(f"Failed to access {resource_name}: {error_msg}")
+
+
+def validate_list(value, field_name: str, item_type: str = "item") -> dict | None:
+    """
+    Validate that a value is a non-empty list.
+
+    Args:
+        value: The value to validate
+        field_name: Name of the field for error messages
+        item_type: Type of items in the list for error messages
+
+    Returns:
+        Error dict if validation fails, None if OK
+    """
+    if not value or not isinstance(value, list) or len(value) == 0:
+        return error_response(
+            f"At least one {item_type} is required. "
+            f"Please provide {field_name}."
+        )
+    return None
+
+
+def validate_string(value, field_name: str) -> dict | None:
+    """
+    Validate that a value is a non-empty string.
+
+    Args:
+        value: The value to validate
+        field_name: Name of the field for error messages
+
+    Returns:
+        Error dict if validation fails, None if OK
+    """
+    if not value or (isinstance(value, str) and not value.strip()):
+        return error_response(f"A {field_name} is required.")
+    return None
