@@ -14,6 +14,7 @@ from utils import (
     format_video_data,
     format_user_playlist_data,
     bound_limit,
+    fetch_all_paginated,
     handle_endpoint_errors,
     safe_attr,
     get_playlist_or_404,
@@ -35,14 +36,14 @@ def requires_tidal_auth(f):
     def decorated_function(*args, **kwargs):
         if not SESSION_FILE.exists():
             return jsonify({"error": "Not authenticated"}), 401
-        
+
         # Create session and load from file
         session = BrowserSession()
         login_success = session.login_session_file_auto(SESSION_FILE)
-        
+
         if not login_success:
             return jsonify({"error": "Authentication failed"}), 401
-            
+
         # Add the authenticated session to kwargs
         kwargs['session'] = session
         return f(*args, **kwargs)
@@ -57,17 +58,17 @@ def login():
     """
     # Create our custom session object
     session = BrowserSession()
-    
+
     def log_message(msg):
         print(f"TIDAL AUTH: {msg}")
-    
+
     # Try to authenticate (will open browser if needed)
     try:
         login_success = session.login_session_file_auto(SESSION_FILE, fn_print=log_message)
-        
+
         if login_success:
             return jsonify({
-                "status": "success", 
+                "status": "success",
                 "message": "Successfully authenticated with TIDAL",
                 "user_id": session.user.id
             })
@@ -76,13 +77,13 @@ def login():
                 "status": "error",
                 "message": "Authentication failed"
             }), 401
-    
+
     except TimeoutError:
         return jsonify({
             "status": "error",
             "message": "Authentication timed out"
         }), 408
-    
+
     except Exception as e:
         return jsonify({
             "status": "error",
@@ -99,19 +100,19 @@ def auth_status():
             "authenticated": False,
             "message": "No session file found"
         })
-    
+
     # Create session and try to load from file
     session = BrowserSession()
     login_success = session.login_session_file_auto(SESSION_FILE)
-    
+
     if login_success:
         # Get basic user info
         user_info = {
             "id": session.user.id,
             "username": session.user.username if hasattr(session.user, 'username') else "N/A",
-            "email": session.user.email if hasattr(session.user, 'email') else "N/A"            
+            "email": session.user.email if hasattr(session.user, 'email') else "N/A"
         }
-        
+
         return jsonify({
             "authenticated": True,
             "message": "Valid TIDAL session",
@@ -134,15 +135,21 @@ def get_tracks(session: BrowserSession):
     # Get user favorites or history (for now limiting to user favorites only)
     favorites = session.user.favorites
 
-    # Get limit from query parameter, default to 10 if not specified
-    limit = bound_limit(request.args.get('limit', default=10, type=int))
+    # Get limit from query parameter, default to 50 if not specified
+    limit = bound_limit(request.args.get('limit', default=50, type=int))
 
-    tracks = favorites.tracks(limit=limit, order="DATE", order_direction="DESC")
+    # Use pagination to fetch tracks (TIDAL limits to 50 per request)
+    tracks = fetch_all_paginated(
+        lambda lim, off: favorites.tracks(
+            limit=lim, offset=off, order="DATE", order_direction="DESC"
+        ),
+        limit=limit
+    )
     track_list = [format_track_data(track) for track in tracks]
 
-    return jsonify({"tracks": track_list})
-    
-    
+    return jsonify({"tracks": track_list, "total": len(track_list)})
+
+
 @app.route('/api/recommendations/track/<track_id>', methods=['GET'])
 @requires_tidal_auth
 @handle_endpoint_errors("fetching recommendations")
@@ -162,7 +169,7 @@ def get_track_recommendations(track_id: str, session: BrowserSession):
 
     # Format track data
     track_list = [format_track_data(t) for t in recommendations]
-    return jsonify({"recommendations": track_list})    
+    return jsonify({"recommendations": track_list})
 
 
 @app.route('/api/recommendations/batch', methods=['POST'])
@@ -287,7 +294,7 @@ def get_user_playlists(session: BrowserSession):
     )
 
     return jsonify({"playlists": sorted_playlists})
-    
+
 
 @app.route('/api/playlists/<playlist_id>/tracks', methods=['GET'])
 @requires_tidal_auth
@@ -296,13 +303,20 @@ def get_playlist_tracks(playlist_id: str, session: BrowserSession):
     """
     Get tracks from a specific TIDAL playlist.
     """
-    limit = bound_limit(request.args.get('limit', default=100, type=int))
+    # Get limit from query parameter, default to 1000 if not specified
+    limit = bound_limit(request.args.get('limit', default=1000, type=int))
 
     playlist, error = get_playlist_or_404(session, playlist_id)
     if error:
         return error
 
-    tracks = playlist.items(limit=limit)
+    # Use pagination to fetch tracks (TIDAL limits to 50 per request)
+    tracks = fetch_all_paginated(
+        lambda lim, off: playlist.items(limit=lim, offset=off),
+        limit=limit
+    )
+
+    # Format track data
     track_list = [format_track_data(track) for track in tracks]
 
     return jsonify({
@@ -310,7 +324,7 @@ def get_playlist_tracks(playlist_id: str, session: BrowserSession):
         "tracks": track_list,
         "total_tracks": len(track_list)
     })
-    
+
 
 @app.route('/api/playlists/<playlist_id>', methods=['DELETE'])
 @requires_tidal_auth
@@ -491,9 +505,9 @@ def remove_tracks_from_playlist(playlist_id: str, session: BrowserSession):
 
 if __name__ == '__main__':
     import os
-    
+
     # Get port from environment variable or use default
     port = int(os.environ.get("TIDAL_MCP_PORT", 5050))
-    
+
     print(f"Starting Flask app on port {port}")
     app.run(debug=True, port=port)

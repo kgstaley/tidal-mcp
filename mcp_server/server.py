@@ -58,7 +58,7 @@ def tidal_login() -> dict:
         }
     
 @mcp.tool()
-def get_favorite_tracks(limit: int = 20) -> dict:
+def get_favorite_tracks(limit: int = 50) -> dict:
     """
     Retrieves tracks from the user's TIDAL account favorites.
 
@@ -72,7 +72,7 @@ def get_favorite_tracks(limit: int = 20) -> dict:
     This function retrieves the user's favorite tracks from TIDAL.
 
     Args:
-        limit: Maximum number of tracks to retrieve (default: 20, note it should be large enough by default unless specified otherwise).
+        limit: Maximum number of tracks to retrieve (default: 50, max: 5000).
 
     Returns:
         A dictionary containing track information including track ID, title, artist, album, and duration.
@@ -408,10 +408,10 @@ def get_user_playlists() -> dict:
     
 
 @mcp.tool()
-def get_playlist_tracks(playlist_id: str, limit: int = 100) -> dict:
+def get_playlist_tracks(playlist_id: str, limit: int = 50) -> dict:
     """
     Retrieves all tracks from a specified TIDAL playlist.
-    
+
     USE THIS TOOL WHENEVER A USER ASKS FOR:
     - "Show me the songs in my playlist"
     - "What tracks are in my [playlist name] playlist?"
@@ -419,21 +419,21 @@ def get_playlist_tracks(playlist_id: str, limit: int = 100) -> dict:
     - "Get tracks from my playlist"
     - "View contents of my TIDAL playlist"
     - Any request to see what songs/tracks are in a specific playlist
-    
+
     This function retrieves all tracks from a specific playlist in the user's TIDAL account.
     The playlist_id must be provided, which can be obtained from the get_user_playlists() function.
-    
+
     When processing the results of this tool:
     1. Present the playlist information (title, description, track count) as context
     2. List the tracks in a clear, organized format with track name, artist, and album
     3. Include track durations where available
     4. Mention the total number of tracks in the playlist
     5. If there are many tracks, focus on highlighting interesting patterns or variety
-    
+
     Args:
         playlist_id: The TIDAL ID of the playlist to retrieve (required)
-        limit: Maximum number of tracks to retrieve (default: 100)
-        
+        limit: Maximum number of tracks to retrieve (default: 50, max: 5000)
+
     Returns:
         A dictionary containing the playlist information and all tracks in the playlist
     """
