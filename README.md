@@ -9,7 +9,7 @@ With TIDAL MCP, you can ask for things like:
 >
 > *"Find me tracks like those in this playlist, but slower and more acoustic."*
 
-The LLM filters and curates results using your input, finds similar tracks via TIDAL’s API, and builds new playlists directly in your account.
+The LLM filters and curates results using your input, finds similar tracks via TIDAL's API, and builds new playlists directly in your account.
 
 <a href="https://glama.ai/mcp/servers/@yuhuacheng/tidal-mcp">
   <img width="400" height="200" src="https://glama.ai/mcp/servers/@yuhuacheng/tidal-mcp/badge" alt="TIDAL: My Custom Picks MCP server" />
@@ -19,6 +19,7 @@ The LLM filters and curates results using your input, finds similar tracks via T
 
 - 🌟 **Music Recommendations**: Get personalized track recommendations based on your listening history **plus your custom criteria**.
 - ၊၊||၊ **Playlist Management**: Create, view, and manage your TIDAL playlists
+- 🔍 **Catalog Search**: Search TIDAL for artists, tracks, albums, playlists, and videos
 - 📚 **Large Collection Support**: Fetch up to 5000 tracks with automatic pagination (handles TIDAL's 50-item-per-request limit)
 
 ## Quick Start
@@ -85,7 +86,7 @@ To add this MCP server to Claude Desktop, you need to update the MCP configurati
 }
 ```
 
-Example scrrenshot of the MCP configuration in Claude Desktop:
+Example screenshot of the MCP configuration in Claude Desktop:
 ![Claude MCP Configuration](./assets/claude_desktop_config.png)
 
 ### Steps to Install MCP Configuration
@@ -97,29 +98,178 @@ Example scrrenshot of the MCP configuration in Claude Desktop:
 5. Save the configuration
 6. Restart Claude Desktop
 
-## Suggested Prompt Starters
-Once configured, you can interact with your TIDAL account through a LLM by asking questions like:
+## How It Works
 
-- *“Recommend songs like those in this playlist, but slower and more acoustic.”*
-- *“Create a playlist based on my top tracks, but focused on chill, late-night vibes.”*
-- *“Find songs like these in playlist XYZ but in languages other than English.”*
+TIDAL MCP uses a two-tier architecture:
+
+```
+┌─────────────────┐     stdio      ┌─────────────────┐     HTTP      ┌─────────────────┐
+│  Claude Desktop │ ◄────────────► │   MCP Server    │ ◄───────────► │  Flask Backend  │
+│   (MCP Client)  │                │   (server.py)   │               │   (TIDAL API)   │
+└─────────────────┘                └─────────────────┘               └─────────────────┘
+```
+
+1. **MCP Server**: Communicates with Claude Desktop via the Model Context Protocol, exposing tools that Claude can use
+2. **Flask Backend**: Handles all TIDAL API interactions (authentication, searching, playlist management)
+
+**Privacy**: Your TIDAL credentials and session data stay local on your machine. Authentication happens directly between your browser and TIDAL.
+
+## Usage Guide
+
+### First-Time Setup
+
+1. **Start a conversation** with Claude Desktop after configuring the MCP server
+2. **Ask Claude to log in to TIDAL**: *"Please log me in to TIDAL"*
+3. **Authenticate**: Your browser will open to TIDAL's login page. Sign in with your TIDAL account.
+4. **Session persists**: Once authenticated, your session is saved locally. You won't need to log in again unless the session expires.
+
+### Common Workflows
+
+**Getting Personalized Recommendations**
+```
+You: "Based on my recent favorites, recommend some similar tracks but more upbeat and from the last 2 years"
+Claude: [Uses get_favorite_tracks → recommend_tracks → presents curated list]
+```
+
+**Searching and Adding to Playlists**
+```
+You: "Search for songs by Khruangbin and add the top 5 to my 'Chill Vibes' playlist"
+Claude: [Uses search_tidal → get_user_playlists → add_tracks_to_playlist]
+```
+
+**Creating a Themed Playlist**
+```
+You: "Create a playlist called 'Late Night Jazz' with recommendations based on my playlist 'Evening Relaxation'"
+Claude: [Uses get_playlist_tracks → recommend_tracks → create_tidal_playlist]
+```
+
+**Cleaning Up Playlists**
+```
+You: "Show me my playlist 'Road Trip Mix' and remove any duplicate tracks"
+Claude: [Uses get_playlist_tracks → remove_tracks_from_playlist]
+```
+
+## Available Tools
+
+### Authentication
+
+| Tool | Description |
+|------|-------------|
+| `tidal_login` | Authenticate with TIDAL through browser login flow |
+
+### Library Access
+
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `get_favorite_tracks` | `limit` (default: 50, max: 5000) | Retrieve your favorite/saved tracks |
+| `search_tidal` | `query`, `types` (optional), `limit` (default: 20) | Search TIDAL catalog for artists, tracks, albums, playlists, videos |
+| `recommend_tracks` | `track_ids` (optional), `filter_criteria` (optional), `limit_per_track`, `limit_from_favorite` | Get personalized recommendations based on specific tracks or your favorites |
+
+### Playlist Management
+
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `get_user_playlists` | — | List all your TIDAL playlists |
+| `get_playlist_tracks` | `playlist_id`, `limit` (default: 50, max: 5000) | Get all tracks from a specific playlist |
+| `create_tidal_playlist` | `title`, `track_ids`, `description` (optional) | Create a new playlist with specified tracks |
+| `add_tracks_to_playlist` | `playlist_id`, `track_ids`, `allow_duplicates` (default: false), `position` (default: end) | Add tracks to an existing playlist |
+| `remove_tracks_from_playlist` | `playlist_id`, `track_ids` | Remove tracks from a playlist |
+| `delete_tidal_playlist` | `playlist_id` | Delete a playlist from your account |
+
+## Suggested Prompt Starters
+
+Once configured, you can interact with your TIDAL account through Claude by asking questions like:
+
+**Recommendations**
+- *"Recommend songs like those in this playlist, but slower and more acoustic."*
+- *"Create a playlist based on my top tracks, but focused on chill, late-night vibes."*
+- *"Find songs like these in playlist XYZ but in languages other than English."*
+
+**Search & Discovery**
+- *"Search for albums by Radiohead and show me their most recent releases."*
+- *"Find tracks similar to 'Bohemian Rhapsody' and add them to a new playlist."*
+
+**Playlist Management**
+- *"Add the top 10 results from searching 'lo-fi beats' to my study playlist."*
+- *"Remove any tracks by artist X from my workout playlist."*
+- *"Show me all my playlists and how many tracks each has."*
 
 *💡 You can also ask the model to:*
 - Use more tracks as seeds to broaden the inspiration.
 - Return more recommendations if you want a longer playlist.
-- Or delete a playlist if you’re not into it — no pressure!
+- Or delete a playlist if you're not into it — no pressure!
 
-## Available Tools
+## Troubleshooting
 
-The TIDAL MCP integration provides the following tools:
+### Authentication Issues
 
-- `tidal_login`: Authenticate with TIDAL through browser login flow
-- `get_favorite_tracks`: Retrieve your favorite tracks from TIDAL (default: 50, max: 5000)
-- `recommend_tracks`: Get personalized music recommendations
-- `create_tidal_playlist`: Create a new playlist in your TIDAL account
-- `get_user_playlists`: List all your playlists on TIDAL
-- `get_playlist_tracks`: Retrieve all tracks from a specific playlist (default: 50, max: 5000)
-- `delete_tidal_playlist`: Delete a playlist from your TIDAL account
+**Browser doesn't open for login**
+- Ensure your default browser is set correctly in your system settings
+- Try manually opening the URL that Claude provides in the response
+
+**Session expired**
+- Simply ask Claude to log in again: *"Please log me in to TIDAL"*
+- Sessions typically last several days before requiring re-authentication
+
+### Connection Issues
+
+**"Failed to connect to TIDAL service" errors**
+- Verify the Flask backend is running (check for port conflicts)
+- Try changing the port via `TIDAL_MCP_PORT` environment variable
+- Restart Claude Desktop to reload the MCP server
+
+**Port conflicts**
+- Default port is 5001. If occupied, set a custom port in your MCP config:
+  ```json
+  "env": { "TIDAL_MCP_PORT": "5100" }
+  ```
+
+### Common Questions
+
+**Where are my credentials stored?**
+- Your TIDAL session is stored locally in `~/.config/tidal-mcp/` (Linux/macOS) or equivalent on Windows
+- No credentials are sent to Claude or any external service
+
+**Do I need a TIDAL subscription?**
+- Yes, a TIDAL subscription is required to access the API features
+
+**Why do some tracks not have recommendations?**
+- Not all tracks in TIDAL's catalog have recommendation data available
+- Try using different seed tracks if recommendations are sparse
+
+## Development
+
+### Running Tests
+
+```bash
+uv run python3 -m pytest
+```
+
+To run with verbose output:
+```bash
+uv run python3 -m pytest -v
+```
+
+### Project Structure
+
+```
+tidal-mcp/
+├── mcp_server/
+│   ├── server.py      # MCP server with tool definitions
+│   └── utils.py       # Flask backend management utilities
+├── tidal_api/
+│   └── app.py         # Flask app with TIDAL API routes
+├── tests/             # Test suite
+├── pyproject.toml     # Project dependencies
+└── README.md
+```
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Submit a pull request
 
 ## License
 
