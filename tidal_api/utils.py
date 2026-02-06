@@ -279,6 +279,88 @@ def format_album_data(album):
     }
 
 
+def format_album_detail_data(album, review: str = None) -> dict:
+    """
+    Format an album object with extended details.
+
+    Extends format_album_data with additional metadata.
+
+    Args:
+        album: TIDAL album object
+        review: Optional pre-fetched review text
+
+    Returns:
+        Dictionary with detailed album information
+    """
+    tidal_release_date = safe_attr(album, "tidal_release_date")
+    if tidal_release_date is not None:
+        tidal_release_date = str(tidal_release_date)
+
+    audio_modes = safe_attr(album, "audio_modes") or []
+
+    return {
+        **format_album_data(album),
+        "version": safe_attr(album, "version"),
+        "explicit": safe_attr(album, "explicit"),
+        "copyright": safe_attr(album, "copyright"),
+        "audio_quality": safe_attr(album, "audio_quality"),
+        "audio_modes": audio_modes,
+        "popularity": safe_attr(album, "popularity"),
+        "tidal_release_date": tidal_release_date,
+        "review": review,
+    }
+
+
+def format_track_detail_data(track) -> dict:
+    """
+    Format a track object with extended details.
+
+    Extends format_track_data with additional metadata.
+
+    Args:
+        track: TIDAL track object
+
+    Returns:
+        Dictionary with detailed track information
+    """
+    tidal_release_date = safe_attr(track, "tidal_release_date")
+    if tidal_release_date is not None:
+        tidal_release_date = str(tidal_release_date)
+
+    audio_modes = safe_attr(track, "audio_modes") or []
+
+    return {
+        **format_track_data(track),
+        "isrc": safe_attr(track, "isrc"),
+        "explicit": safe_attr(track, "explicit"),
+        "track_num": safe_attr(track, "track_num"),
+        "volume_num": safe_attr(track, "volume_num"),
+        "version": safe_attr(track, "version"),
+        "audio_quality": safe_attr(track, "audio_quality"),
+        "audio_modes": audio_modes,
+        "copyright": safe_attr(track, "copyright"),
+        "popularity": safe_attr(track, "popularity"),
+        "tidal_release_date": tidal_release_date,
+    }
+
+
+def format_lyrics_data(lyrics) -> dict:
+    """
+    Format a Lyrics object into a standardized dictionary.
+
+    Args:
+        lyrics: TIDAL Lyrics object
+
+    Returns:
+        Dictionary with lyrics information
+    """
+    return {
+        "text": safe_attr(lyrics, "text", ""),
+        "subtitles": safe_attr(lyrics, "subtitles", ""),
+        "provider": safe_attr(lyrics, "provider", ""),
+    }
+
+
 def format_playlist_search_data(playlist):
     """
     Format a playlist object from search results into a standardized dictionary.
