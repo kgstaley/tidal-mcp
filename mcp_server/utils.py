@@ -5,6 +5,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import time
 
 import requests
 
@@ -72,6 +73,23 @@ def start_flask_app() -> None:
     )
 
     logger.info("TIDAL Flask app started (pid=%s)", flask_process.pid)
+
+    if not wait_for_flask():
+        logger.error("Flask app did not become ready in time")
+
+
+def wait_for_flask(max_retries: int = 10, delay: float = 0.5) -> bool:
+    """Poll Flask until it responds, confirming it's ready for requests."""
+    for i in range(max_retries):
+        try:
+            resp = http.get(f"{FLASK_APP_URL}/api/auth/status", timeout=2)
+            if resp.status_code in (200, 401):
+                logger.info("Flask app ready after %s attempt(s)", i + 1)
+                return True
+        except requests.RequestException:
+            pass
+        time.sleep(delay)
+    return False
 
 
 def shutdown_flask_app() -> None:

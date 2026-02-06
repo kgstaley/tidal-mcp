@@ -2,20 +2,25 @@
 
 import atexit
 import logging
+import sys
 
-from mcp.server.fastmcp import FastMCP
+from mcp_app import mcp  # noqa: F401 — re-exported for `mcp run` discovery
 from utils import (
     FLASK_PORT,
     shutdown_flask_app,
     start_flask_app,
 )
 
+# Ensure all logging goes to stderr (stdout is reserved for MCP JSON-RPC)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,
+)
+
 logger = logging.getLogger(__name__)
 
 logger.info("TIDAL MCP starting on port %s", FLASK_PORT)
-
-# Create an MCP server
-mcp = FastMCP("TIDAL MCP")
 
 # Start the Flask app when this script is loaded
 logger.info("MCP server module is being loaded. Starting Flask app...")
