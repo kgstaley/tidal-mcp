@@ -3,6 +3,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from flask import jsonify, request
 
@@ -534,3 +535,144 @@ def format_mix_data(mix) -> dict:
         "image_url": image_url,
         "updated": updated,
     }
+
+
+def format_page_link_data(page_link) -> dict:
+    """
+    Format a PageLink object into a standardized dictionary.
+
+    Args:
+        page_link: TIDAL PageLink object
+
+    Returns:
+        Dictionary with page link information
+    """
+    return {
+        "title": safe_attr(page_link, "title"),
+        "api_path": safe_attr(page_link, "api_path"),
+        "icon": safe_attr(page_link, "icon"),
+        "image_id": safe_attr(page_link, "image_id"),
+    }
+
+
+def format_page_item_data(page_item) -> dict:
+    """
+    Format a PageItem (featured item) into a standardized dictionary.
+
+    Args:
+        page_item: TIDAL PageItem object
+
+    Returns:
+        Dictionary with featured item information
+    """
+    return {
+        "header": safe_attr(page_item, "header", ""),
+        "short_header": safe_attr(page_item, "short_header", ""),
+        "short_sub_header": safe_attr(page_item, "short_sub_header", ""),
+        "type": safe_attr(page_item, "type", ""),
+        "artifact_id": safe_attr(page_item, "artifact_id", ""),
+        "featured": safe_attr(page_item, "featured", False),
+    }
+
+
+def format_genre_data(genre) -> dict:
+    """
+    Format a Genre object into a standardized dictionary.
+
+    Args:
+        genre: TIDAL Genre object
+
+    Returns:
+        Dictionary with genre information
+    """
+    return {
+        "name": safe_attr(genre, "name", ""),
+        "path": safe_attr(genre, "path", ""),
+        "has_playlists": safe_attr(genre, "playlists", False),
+        "has_artists": safe_attr(genre, "artists", False),
+        "has_albums": safe_attr(genre, "albums", False),
+        "has_tracks": safe_attr(genre, "tracks", False),
+        "has_videos": safe_attr(genre, "videos", False),
+        "image": safe_attr(genre, "image", ""),
+    }
+
+
+# Map type names to their formatter functions
+_PAGE_ITEM_FORMATTERS: dict[str, Any] = {
+    "Artist": format_artist_data,
+    "Album": format_album_data,
+    "Track": format_track_data,
+    "Playlist": format_playlist_search_data,
+    "UserPlaylist": format_user_playlist_data,
+    "Video": format_video_data,
+    "Mix": format_mix_data,
+    "PageLink": format_page_link_data,
+    "PageItem": format_page_item_data,
+}
+
+
+def _format_page_category_item(item) -> dict | None:
+    """
+    Detect item type and delegate to the correct formatter.
+
+    Uses exact type name match first, then falls back to suffix matching
+    to handle subclasses (e.g., FeaturedAlbum → Album).
+
+    Args:
+        item: A TIDAL page category item (Artist, Album, Track, etc.)
+
+    Returns:
+        Dict with {type, data} or None if the type is not supported
+    """
+    type_name = type(item).__name__
+    formatter = _PAGE_ITEM_FORMATTERS.get(type_name)
+    if not formatter:
+        for key, fmt in _PAGE_ITEM_FORMATTERS.items():
+            if type_name.endswith(key):
+                formatter = fmt
+                type_name = key
+                break
+    if formatter:
+        return {"type": type_name.lower(), "data": formatter(item)}
+    return None
+
+
+def serialize_page_categories(page) -> list[dict]:
+    """
+    Serialize a TIDAL Page's categories into a list of dicts.
+
+    Iterates page.categories, formats each item using existing formatters,
+    and skips TextBlock/LinkList categories.
+
+    Args:
+        page: TIDAL Page object
+
+    Returns:
+        List of {title, items: [{type, data}], count} dicts
+    """
+    categories = safe_attr(page, "categories") or []
+    result = []
+
+    for category in categories:
+        type_name = type(category).__name__
+        if type_name in ("TextBlock", "LinkList"):
+            continue
+
+        title = safe_attr(category, "title", "")
+        raw_items = safe_attr(category, "items") or []
+
+        formatted_items = []
+        for item in raw_items:
+            formatted = _format_page_category_item(item)
+            if formatted:
+                formatted_items.append(formatted)
+
+        result.append(
+            {
+                "title": title,
+                "items": formatted_items,
+                "count": len(formatted_items),
+            }
+        )
+
+    return result
