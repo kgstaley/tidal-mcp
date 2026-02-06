@@ -115,12 +115,44 @@ class MockPlaylist:
         self.num_tracks = 25
         self.duration = 5400
         self._tracks = []
+        self.public = False
 
     def add(self, track_ids, allow_duplicates=False, position=-1):
         return list(range(len(track_ids)))
 
     def remove_by_id(self, track_id):
         pass
+
+    def edit(self, title=None, description=None):
+        """Edit playlist metadata."""
+        if title:
+            self.name = title
+        if description:
+            self.description = description
+        return True
+
+    def move_by_indices(self, indices, position):
+        """Move multiple tracks by indices to position."""
+        return True
+
+    def clear(self, chunk_size=50):
+        """Clear all tracks from playlist."""
+        self.num_tracks = 0
+        return True
+
+    def merge(self, playlist, allow_duplicates=False, allow_missing=True):
+        """Merge tracks from another playlist."""
+        return list(range(10))  # Return 10 added indices
+
+    def set_playlist_public(self):
+        """Make playlist public."""
+        self.public = True
+        return True
+
+    def set_playlist_private(self):
+        """Make playlist private."""
+        self.public = False
+        return True
 
 
 class MockUserPlaylist:
@@ -134,6 +166,46 @@ class MockUserPlaylist:
         self.last_updated = "2024-06-15T12:00:00"
         self.num_tracks = 42
         self.duration = 7200
+        self.public = False
+
+    def edit(self, title=None, description=None):
+        """Edit playlist metadata."""
+        if title:
+            self.name = title
+        if description:
+            self.description = description
+        return True
+
+    def move_by_index(self, index, position):
+        """Move track by index to position."""
+        return True
+
+    def move_by_indices(self, indices, position):
+        """Move multiple tracks by indices to position."""
+        return True
+
+    def move_by_id(self, media_id, position):
+        """Move track by ID to position."""
+        return True
+
+    def clear(self, chunk_size=50):
+        """Clear all tracks from playlist."""
+        self.num_tracks = 0
+        return True
+
+    def merge(self, playlist, allow_duplicates=False, allow_missing=True):
+        """Merge tracks from another playlist."""
+        return list(range(10))  # Return 10 added indices
+
+    def set_playlist_public(self):
+        """Make playlist public."""
+        self.public = True
+        return True
+
+    def set_playlist_private(self):
+        """Make playlist private."""
+        self.public = False
+        return True
 
 
 class MockVideo:

@@ -477,15 +477,26 @@ def check_user_playlist(playlist, operation: str = "modify"):
 
     Args:
         playlist: The playlist object to check
-        operation: "add" or "remove"
+        operation: "add", "remove", "edit", "move", "clear", "merge", or "visibility"
 
     Returns:
         None if OK, or error response tuple if not a user playlist
     """
-    if operation == "add" and not hasattr(playlist, "add"):
+    method_map = {
+        "add": "add",
+        "remove": "remove_by_id",
+        "edit": "edit",
+        "move": "move_by_indices",
+        "clear": "clear",
+        "merge": "merge",
+        "visibility": "set_playlist_public",
+    }
+
+    required_method = method_map.get(operation, "add")
+
+    if not hasattr(playlist, required_method):
         return jsonify({"error": "Cannot modify this playlist - not a user playlist"}), 403
-    if operation == "remove" and not hasattr(playlist, "remove_by_id"):
-        return jsonify({"error": "Cannot modify this playlist - not a user playlist"}), 403
+
     return None
 
 

@@ -247,3 +247,21 @@ def mcp_delete(endpoint: str, resource: str, payload: dict = None, resource_id: 
     response = http.delete(f"{FLASK_APP_URL}{endpoint}", **kwargs)
     error = handle_api_response(response, resource, resource_id)
     return error if error else response.json()
+
+
+def mcp_patch(endpoint: str, resource: str, payload: dict = None, resource_id: str = None) -> dict:
+    """
+    Standard PATCH pattern for MCP tools.
+
+    Args:
+        endpoint: API endpoint path
+        resource: Resource name for error messages
+        payload: JSON body
+        resource_id: Optional resource ID for error messages
+
+    Returns:
+        Parsed JSON response dict, or error dict on failure
+    """
+    response = http.patch(f"{FLASK_APP_URL}{endpoint}", json=payload, timeout=DEFAULT_TIMEOUT)
+    error = handle_api_response(response, resource, resource_id)
+    return error if error else response.json()

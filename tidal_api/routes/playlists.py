@@ -211,3 +211,221 @@ def remove_tracks_from_playlist(playlist_id: str, session: BrowserSession):
         result["failed_track_ids"] = failed_track_ids
 
     return jsonify(result)
+
+
+@playlists_bp.route("/api/playlists/<playlist_id>", methods=["PATCH"])
+@requires_tidal_auth
+@handle_endpoint_errors("editing playlist")
+def edit_playlist(playlist_id: str, session: BrowserSession):
+    """
+    Edit a TIDAL playlist's metadata (title and/or description).
+
+    Expected JSON payload:
+    {
+        "title": "New Title",        // optional
+        "description": "New desc"    // optional (at least one required)
+    }
+    """
+    data, error = require_json_body()
+    if error:
+        return error
+
+    title = data.get("title")
+    description = data.get("description")
+
+    if title is None and description is None:
+        return jsonify({"error": "At least one of 'title' or 'description' must be provided"}), 400
+
+    playlist, error = get_playlist_or_404(session, playlist_id)
+    if error:
+        return error
+
+    error = check_user_playlist(playlist, "edit")
+    if error:
+        return error
+
+    playlist.edit(title=title, description=description)
+
+    # Re-fetch playlist to get updated data
+    playlist = session.playlist(playlist_id)
+    playlist_info = format_user_playlist_data(playlist)
+
+    return jsonify({"status": "success", "message": "Playlist updated successfully", "playlist": playlist_info})
+
+
+@playlists_bp.route("/api/playlists/<playlist_id>/visibility/public", methods=["POST"])
+@requires_tidal_auth
+@handle_endpoint_errors("setting playlist public")
+def set_playlist_public(playlist_id: str, session: BrowserSession):
+    """
+    Make a TIDAL playlist public.
+    """
+    playlist, error = get_playlist_or_404(session, playlist_id)
+    if error:
+        return error
+
+    error = check_user_playlist(playlist, "visibility")
+    if error:
+        return error
+
+    playlist.set_playlist_public()
+
+    return jsonify(
+        {"status": "success", "message": "Playlist is now public", "playlist_id": playlist_id, "public": True}
+    )
+
+
+@playlists_bp.route("/api/playlists/<playlist_id>/visibility/private", methods=["POST"])
+@requires_tidal_auth
+@handle_endpoint_errors("setting playlist private")
+def set_playlist_private(playlist_id: str, session: BrowserSession):
+    """
+    Make a TIDAL playlist private.
+    """
+    playlist, error = get_playlist_or_404(session, playlist_id)
+    if error:
+        return error
+
+    error = check_user_playlist(playlist, "visibility")
+    if error:
+        return error
+
+    playlist.set_playlist_private()
+
+    return jsonify(
+        {"status": "success", "message": "Playlist is now private", "playlist_id": playlist_id, "public": False}
+    )
+
+
+@playlists_bp.route("/api/playlists/<playlist_id>/tracks/all", methods=["DELETE"])
+@requires_tidal_auth
+@handle_endpoint_errors("clearing playlist")
+def clear_playlist(playlist_id: str, session: BrowserSession):
+    """
+    Remove all tracks from a TIDAL playlist.
+
+    Optional JSON payload:
+    {
+        "chunk_size": 50  // optional, default 50
+    }
+    """
+    data = request.get_json() or {}
+    chunk_size = data.get("chunk_size", 50)
+
+    if not isinstance(chunk_size, int) or chunk_size < 1:
+        return jsonify({"error": "'chunk_size' must be a positive integer"}), 400
+
+    playlist, error = get_playlist_or_404(session, playlist_id)
+    if error:
+        return error
+
+    error = check_user_playlist(playlist, "clear")
+    if error:
+        return error
+
+    playlist.clear(chunk_size=chunk_size)
+
+    return jsonify({"status": "success", "message": "Playlist cleared successfully", "playlist_id": playlist_id})
+
+
+@playlists_bp.route("/api/playlists/<playlist_id>/tracks/reorder", methods=["POST"])
+@requires_tidal_auth
+@handle_endpoint_errors("reordering playlist tracks")
+def reorder_playlist_tracks(playlist_id: str, session: BrowserSession):
+    """
+    Reorder tracks in a TIDAL playlist by moving tracks to a new position.
+
+    Expected JSON payload:
+    {
+        "indices": [2, 5, 7],  // list of track indices (0-based), required
+        "position": 10         // new position (0-based), required
+    }
+    """
+    data, error = require_json_body(required_fields=["indices", "position"])
+    if error:
+        return error
+
+    indices = data["indices"]
+    position = data["position"]
+
+    if not isinstance(indices, list) or len(indices) == 0:
+        return jsonify({"error": "'indices' must be a non-empty list of integers"}), 400
+
+    if not all(isinstance(i, int) for i in indices):
+        return jsonify({"error": "All values in 'indices' must be integers"}), 400
+
+    if not isinstance(position, int):
+        return jsonify({"error": "'position' must be an integer"}), 400
+
+    playlist, error = get_playlist_or_404(session, playlist_id)
+    if error:
+        return error
+
+    error = check_user_playlist(playlist, "move")
+    if error:
+        return error
+
+    playlist.move_by_indices(indices, position)
+
+    return jsonify(
+        {
+            "status": "success",
+            "message": f"Moved {len(indices)} track(s) to position {position}",
+            "playlist_id": playlist_id,
+        }
+    )
+
+
+@playlists_bp.route("/api/playlists/<playlist_id>/merge", methods=["POST"])
+@requires_tidal_auth
+@handle_endpoint_errors("merging playlists")
+def merge_playlists(playlist_id: str, session: BrowserSession):
+    """
+    Merge tracks from another playlist into this playlist.
+
+    Expected JSON payload:
+    {
+        "source_playlist_id": "xyz-789",  // required
+        "allow_duplicates": false,        // optional, default false
+        "allow_missing": true             // optional, default true
+    }
+    """
+    data, error = require_json_body(required_fields=["source_playlist_id"])
+    if error:
+        return error
+
+    source_playlist_id = data["source_playlist_id"]
+    allow_duplicates = data.get("allow_duplicates", False)
+    allow_missing = data.get("allow_missing", True)
+
+    # Get target playlist
+    target_playlist, error = get_playlist_or_404(session, playlist_id)
+    if error:
+        return error
+
+    error = check_user_playlist(target_playlist, "merge")
+    if error:
+        return error
+
+    # Get source playlist
+    source_playlist, error = get_playlist_or_404(session, source_playlist_id)
+    if error:
+        return None, (
+            jsonify({"error": f"Source playlist with ID {source_playlist_id} not found"}),
+            404,
+        )
+
+    # Merge playlists
+    added_indices = target_playlist.merge(
+        source_playlist, allow_duplicates=allow_duplicates, allow_missing=allow_missing
+    )
+
+    return jsonify(
+        {
+            "status": "success",
+            "message": f"Merged {len(added_indices)} tracks from source playlist",
+            "playlist_id": playlist_id,
+            "source_playlist_id": source_playlist_id,
+            "tracks_added": len(added_indices),
+        }
+    )
