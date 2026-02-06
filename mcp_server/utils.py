@@ -5,6 +5,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import time
 
 import requests
@@ -17,8 +18,9 @@ DEFAULT_TIMEOUT = 30
 FLASK_PORT = int(os.environ.get("TIDAL_MCP_PORT", DEFAULT_PORT))
 FLASK_APP_URL = f"http://127.0.0.1:{FLASK_PORT}"
 
-# Path to Flask app
+# Path to Flask app and project root
 CURRENT_DIR = pathlib.Path(__file__).parent.absolute()
+PROJECT_ROOT = CURRENT_DIR.parent
 FLASK_APP_PATH = os.path.normpath(os.path.join(CURRENT_DIR, "..", "tidal_api", "app.py"))
 
 # Shared HTTP session with connection pooling
@@ -68,8 +70,9 @@ def start_flask_app() -> None:
 
     flask_process = subprocess.Popen(
         [uv_executable, "run", "--with", "tidalapi", "--with", "flask", "--with", "requests", "python", FLASK_APP_PATH],
+        cwd=str(PROJECT_ROOT),
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=sys.stderr,
     )
 
     logger.info("TIDAL Flask app started (pid=%s)", flask_process.pid)
