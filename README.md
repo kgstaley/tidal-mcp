@@ -37,9 +37,7 @@ The LLM filters and curates results using your input, finds similar tracks via T
 ```bash
 git clone https://github.com/yuhuacheng/tidal-mcp.git
 cd tidal-mcp
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install --editable .
+script/bootstrap
 ```
 
 See [docs/setup.md](docs/setup.md) for MCP client configuration, first-time authentication, and optional custom OAuth credentials (`TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET`).
@@ -94,9 +92,12 @@ See [docs/workflows.md](docs/workflows.md) for common usage patterns and prompt 
 ## Development
 
 ```bash
-uv run python3 -m pytest          # Run tests
-uv run ruff check .               # Lint
-uv run ruff format --check .      # Check formatting
+script/bootstrap       # Install dependencies and check prerequisites
+script/test            # Run tests (args forwarded to pytest)
+script/lint            # Check lint + formatting (--fix to auto-fix)
+script/ci              # Run full lint + test pipeline
+script/start           # Launch MCP dev server
+script/start --flask   # Launch Flask backend only
 ```
 
 See [docs/development.md](docs/development.md) for project structure and contributing guidelines.
