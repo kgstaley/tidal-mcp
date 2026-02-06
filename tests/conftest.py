@@ -1,0 +1,97 @@
+"""Shared mock classes and fixtures for all tests."""
+
+
+class MockArtist:
+    """Mock TIDAL artist object."""
+
+    def __init__(self, id=123, name="Test Artist"):
+        self.id = id
+        self.name = name
+
+    def picture(self, size):
+        return f"https://tidal.com/picture/{self.id}/{size}"
+
+
+class MockAlbum:
+    """Mock TIDAL album object."""
+
+    def __init__(self, id=456, name="Test Album", artist=None):
+        self.id = id
+        self.name = name
+        self.artist = artist or MockArtist()
+        self.release_date = "2024-01-15"
+        self.num_tracks = 12
+        self.duration = 3600
+
+    def image(self, size):
+        return f"https://tidal.com/image/{self.id}/{size}"
+
+
+class MockTrack:
+    """Mock TIDAL track object."""
+
+    def __init__(self, id=789, name="Test Track", artist=None, album=None):
+        self.id = id
+        self.name = name
+        self.artist = artist or MockArtist()
+        self.album = album or MockAlbum()
+        self.duration = 240
+
+
+class MockCreator:
+    """Mock playlist creator."""
+
+    def __init__(self, name="Test User"):
+        self.name = name
+
+
+class MockPlaylist:
+    """Mock TIDAL playlist object (with modification capabilities)."""
+
+    def __init__(self, id="abc-123", name="Test Playlist", creator=None):
+        self.id = id
+        self.name = name
+        self.creator = creator or MockCreator()
+        self.num_tracks = 25
+        self.duration = 5400
+        self._tracks = []
+
+    def add(self, track_ids, allow_duplicates=False, position=-1):
+        return list(range(len(track_ids)))
+
+    def remove_by_id(self, track_id):
+        pass
+
+
+class MockUserPlaylist:
+    """Mock TIDAL user playlist object (for format_user_playlist_data)."""
+
+    def __init__(self, id="user-playlist-123", name="My Playlist"):
+        self.id = id
+        self.name = name
+        self.description = "A test playlist"
+        self.created = "2024-01-01T00:00:00"
+        self.last_updated = "2024-06-15T12:00:00"
+        self.num_tracks = 42
+        self.duration = 7200
+
+
+class MockVideo:
+    """Mock TIDAL video object."""
+
+    def __init__(self, id=999, name="Test Video", artist=None):
+        self.id = id
+        self.name = name
+        self.artist = artist or MockArtist()
+        self.duration = 300
+
+
+class MockResponse:
+    """Mock requests.Response object for MCP tool tests."""
+
+    def __init__(self, json_data, status_code=200):
+        self._json_data = json_data
+        self.status_code = status_code
+
+    def json(self):
+        return self._json_data
