@@ -10,6 +10,11 @@
 - Simply ask Claude to log in again: *"Please log me in to TIDAL"*
 - Sessions typically last several days before requiring re-authentication
 
+**"invalid_client" or "Client with token ... not found" errors**
+- This means TIDAL has revoked the OAuth client credentials that `tidalapi` ships with
+- **Quick fix**: Update `tidalapi` to the latest version (`uv pip install --upgrade tidalapi`)
+- **Long-term fix**: Set your own credentials via `TIDAL_CLIENT_ID` and `TIDAL_CLIENT_SECRET` environment variables in your MCP config (see [setup.md](setup.md#custom-oauth-credentials-optional))
+
 ## Connection Issues
 
 **"Failed to connect to TIDAL service" errors**

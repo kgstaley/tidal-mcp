@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **MCP server double module loading** — `mcp run` loaded `server.py` under a synthetic module name (`server_module`), causing tool files to re-import it as `server` and create a second `FastMCP` instance with zero tools. Extracted the `FastMCP` instance into `mcp_server/mcp_app.py` so all modules share one instance.
+- **Flask subprocess failing to start** — The subprocess inherited Claude Desktop's working directory (not the project root), so `uv run` couldn't find `pyproject.toml` and `tidal_api` imports failed silently. Added `cwd=PROJECT_ROOT` and `stderr=sys.stderr` to `Popen`.
+- **Port conflict on Flask reload** — `debug=True` caused Flask's stat reloader to fork and re-bind the port, crashing with "Address already in use". Disabled debug mode for subprocess usage.
+- **Orphaned Flask process on MCP restart** — `atexit` handlers don't fire on `SIGTERM` (how Claude Desktop stops servers). Added signal handlers for `SIGTERM`/`SIGINT` to ensure Flask is terminated.
+- **TIDAL `invalid_client` auth failure** — `tidalapi` v0.8.3's hardcoded OAuth client ID was revoked by TIDAL. Bumped to v0.8.11 with updated credentials.
+
+### Added
+- **Configurable OAuth credentials** — `TIDAL_CLIENT_ID` and `TIDAL_CLIENT_SECRET` env vars override `tidalapi`'s built-in credentials, avoiding breakage when TIDAL revokes them
+- **Flask startup health check** — `wait_for_flask()` polls the Flask backend after launch to confirm it's ready before the MCP server accepts tool calls
+- **`.env.example`** — template for all supported environment variables
+
+### Changed
+- `tidalapi` minimum version bumped from 0.8.3 to 0.8.11
+- MCP tool modules import `mcp` from `mcp_app` instead of `server`
+- All MCP server logging explicitly directed to `stderr` (stdout reserved for JSON-RPC)
+
 ### Added
 
 #### Phase 4: Full Favorites CRUD

@@ -3,7 +3,7 @@
 import logging
 
 import requests
-from server import mcp
+from mcp_app import mcp
 from utils import (
     check_tidal_auth,
     error_response,

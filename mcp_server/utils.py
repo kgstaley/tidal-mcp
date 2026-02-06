@@ -5,6 +5,8 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
+import time
 
 import requests
 
@@ -16,8 +18,9 @@ DEFAULT_TIMEOUT = 30
 FLASK_PORT = int(os.environ.get("TIDAL_MCP_PORT", DEFAULT_PORT))
 FLASK_APP_URL = f"http://127.0.0.1:{FLASK_PORT}"
 
-# Path to Flask app
+# Path to Flask app and project root
 CURRENT_DIR = pathlib.Path(__file__).parent.absolute()
+PROJECT_ROOT = CURRENT_DIR.parent
 FLASK_APP_PATH = os.path.normpath(os.path.join(CURRENT_DIR, "..", "tidal_api", "app.py"))
 
 # Shared HTTP session with connection pooling
@@ -67,11 +70,29 @@ def start_flask_app() -> None:
 
     flask_process = subprocess.Popen(
         [uv_executable, "run", "--with", "tidalapi", "--with", "flask", "--with", "requests", "python", FLASK_APP_PATH],
+        cwd=str(PROJECT_ROOT),
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=sys.stderr,
     )
 
     logger.info("TIDAL Flask app started (pid=%s)", flask_process.pid)
+
+    if not wait_for_flask():
+        logger.error("Flask app did not become ready in time")
+
+
+def wait_for_flask(max_retries: int = 10, delay: float = 0.5) -> bool:
+    """Poll Flask until it responds, confirming it's ready for requests."""
+    for i in range(max_retries):
+        try:
+            resp = http.get(f"{FLASK_APP_URL}/api/auth/status", timeout=2)
+            if resp.status_code in (200, 401):
+                logger.info("Flask app ready after %s attempt(s)", i + 1)
+                return True
+        except requests.RequestException:
+            pass
+        time.sleep(delay)
+    return False
 
 
 def shutdown_flask_app() -> None:

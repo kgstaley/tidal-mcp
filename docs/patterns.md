@@ -302,7 +302,7 @@ def get_artist_albums(artist_id: str, session):
 ```python
 import logging
 import requests
-from server import mcp
+from mcp_app import mcp
 from utils import (
     check_tidal_auth,
     error_response,

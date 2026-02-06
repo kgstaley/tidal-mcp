@@ -5,7 +5,8 @@
 ```
 tidal-mcp/
 ├── mcp_server/
-│   ├── server.py              # FastMCP init + tool module imports
+│   ├── mcp_app.py             # FastMCP instance (shared singleton)
+│   ├── server.py              # MCP init, Flask lifecycle, tool module imports
 │   ├── utils.py               # Shared HTTP helpers, validation, Flask lifecycle
 │   └── tools/
 │       ├── __init__.py
@@ -42,6 +43,7 @@ tidal-mcp/
 │       ├── conftest.py        # MCP module setup + auth fixtures
 │       └── test_*.py          # MCP tool tests
 ├── docs/                      # Documentation
+├── .env.example               # Environment variable template
 ├── pyproject.toml             # Dependencies + tool configuration
 └── README.md
 ```

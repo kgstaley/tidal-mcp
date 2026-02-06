@@ -3,7 +3,7 @@
 import logging
 
 import requests
-from server import mcp
+from mcp_app import mcp
 from utils import DEFAULT_TIMEOUT, FLASK_APP_URL, http
 
 logger = logging.getLogger(__name__)

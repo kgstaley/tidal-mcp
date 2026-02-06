@@ -58,6 +58,34 @@ Update the MCP configuration file with the following (optionally set a custom po
 }
 ```
 
+### Custom OAuth Credentials (Optional)
+
+By default, the server uses `tidalapi`'s built-in OAuth client credentials. These are hardcoded in the library and may stop working if TIDAL revokes them. To avoid this, you can supply your own credentials via environment variables:
+
+```json
+{
+  "mcpServers": {
+    "TIDAL Integration": {
+      "command": "/path/to/your/uv",
+      "env": {
+        "TIDAL_MCP_PORT": "5100",
+        "TIDAL_CLIENT_ID": "your_client_id",
+        "TIDAL_CLIENT_SECRET": "your_client_secret"
+      },
+      "args": ["..."]
+    }
+  }
+}
+```
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `TIDAL_MCP_PORT` | Port for the Flask backend (default: `5050`) | No |
+| `TIDAL_CLIENT_ID` | Custom OAuth client ID for TIDAL API | No |
+| `TIDAL_CLIENT_SECRET` | Custom OAuth client secret for TIDAL API | No |
+
+If `TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET` are not set, the server falls back to `tidalapi`'s defaults.
+
 ### Steps to Install
 
 1. Open Claude Desktop

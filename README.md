@@ -42,7 +42,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install --editable .
 ```
 
-See [docs/setup.md](docs/setup.md) for MCP client configuration and first-time authentication.
+See [docs/setup.md](docs/setup.md) for MCP client configuration, first-time authentication, and optional custom OAuth credentials (`TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET`).
 
 ## How It Works
 

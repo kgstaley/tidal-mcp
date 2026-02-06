@@ -1,14 +1,37 @@
+import logging
+import os
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 
 import tidalapi
 
+logger = logging.getLogger(__name__)
+
 
 class BrowserSession(tidalapi.Session):
     """
-    Extended tidalapi.Session that automatically opens the login URL in a browser
+    Extended tidalapi.Session that automatically opens the login URL in a browser.
+
+    Reads optional env vars to override tidalapi's built-in OAuth credentials:
+      TIDAL_CLIENT_ID      — OAuth client ID
+      TIDAL_CLIENT_SECRET   — OAuth client secret
     """
+
+    def __init__(self, config: tidalapi.Config | None = None) -> None:
+        if config is None:
+            config = tidalapi.Config()
+
+        client_id = os.environ.get("TIDAL_CLIENT_ID")
+        client_secret = os.environ.get("TIDAL_CLIENT_SECRET")
+
+        if client_id:
+            config.client_id = client_id
+            logger.info("Using custom TIDAL_CLIENT_ID from environment")
+        if client_secret:
+            config.client_secret = client_secret
+
+        super().__init__(config)
 
     def login_oauth_simple(self, fn_print: Callable[[str], None] = print) -> None:
         """
