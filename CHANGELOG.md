@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+#### Phase 6: Discovery & Browsing
+- **Discovery tools** — 6 new MCP tools for browsing TIDAL's curated content:
+  - `get_for_you_page` — personalized "For You" recommendations
+  - `explore_tidal` — editorial/trending content ("what's new on TIDAL?")
+  - `get_tidal_moods` — list browsable moods (Chill, Party, Workout, etc.)
+  - `browse_tidal_mood` — drill into a mood's curated playlists and albums
+  - `get_tidal_genres` — list available music genres
+  - `browse_tidal_genre` — browse genre content by type (playlists, artists, albums, tracks, videos)
+- 6 new Flask endpoints: GET `/api/discover/for-you`, `/api/discover/explore`, `/api/discover/moods`, `/api/discover/moods/<api_path>`, `/api/discover/genres`, `/api/discover/genres/<path>/<type>`
+- Generic page serialization: `serialize_page_categories()` handles deeply nested `Page → categories → items` structures, reusing all existing formatters via type-dispatch
+- `format_page_link_data()`, `format_page_item_data()`, `format_genre_data()` formatters
+- `MockPage`, `MockPageCategory`, `MockPageLink`, `MockPageItem`, `MockGenre` test classes
+- 37 new tests (21 Flask + 16 MCP)
+
 #### Phase 5: Playlist Editing (PR #11)
 - **Playlist editing tools** — 5 new MCP tools for comprehensive playlist management:
   - `edit_tidal_playlist` — edit playlist title and/or description

@@ -244,6 +244,89 @@ class MockMix:
         return []
 
 
+class MockPageLink:
+    """Mock TIDAL PageLink object."""
+
+    def __init__(self, title="Chill", api_path="pages/moods_chill", icon="mood", image_id="img-chill-123"):
+        self.title = title
+        self.api_path = api_path
+        self.icon = icon
+        self.image_id = image_id
+
+    def get(self):
+        return MockPage(title=self.title)
+
+
+class MockPageItem:
+    """Mock TIDAL PageItem (featured item) object."""
+
+    def __init__(
+        self,
+        header="Featured Album",
+        short_header="Featured",
+        short_sub_header="New Release",
+        type="ALBUM",
+        artifact_id="album-456",
+        featured=True,
+    ):
+        self.header = header
+        self.short_header = short_header
+        self.short_sub_header = short_sub_header
+        self.type = type
+        self.artifact_id = artifact_id
+        self.featured = featured
+        self.text = ""
+        self.image_id = ""
+
+
+class MockPageCategory:
+    """Mock TIDAL PageCategory object."""
+
+    def __init__(self, title="Top Albums", items=None):
+        self.title = title
+        self.items = items or []
+        self.type = None
+        self.description = ""
+
+
+class MockPage:
+    """Mock TIDAL Page object."""
+
+    def __init__(self, title="For You", categories=None):
+        self.title = title
+        self.categories = categories
+
+    def get(self, endpoint, params=None):
+        return self
+
+
+class MockGenre:
+    """Mock TIDAL Genre object."""
+
+    def __init__(
+        self,
+        name="Pop",
+        path="pop",
+        has_playlists=True,
+        has_artists=True,
+        has_albums=True,
+        has_tracks=True,
+        has_videos=False,
+        image="pop-image-id",
+    ):
+        self.name = name
+        self.path = path
+        self.playlists = has_playlists
+        self.artists = has_artists
+        self.albums = has_albums
+        self.tracks = has_tracks
+        self.videos = has_videos
+        self.image = image
+
+    def items(self, model):
+        return []
+
+
 class MockResponse:
     """Mock requests.Response object for MCP tool tests."""
 

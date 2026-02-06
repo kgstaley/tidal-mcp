@@ -20,7 +20,7 @@ Full plan: `.claude/plans/clever-twirling-newell.md` (also at `.claude/plans/in-
 | 3 — Mixes & radio | `feature/mixes-radio` | **Merged** | #9 |
 | 4 — Full favorites CRUD | — | **Skipped** | (see note below) |
 | 5 — Playlist editing | `feature/playlist-editing` | **Merged** | #11 |
-| 6 — Discovery & browsing | — | Not started | — |
+| 6 — Discovery & browsing | `feature/discovery-browsing` | **In progress** | — |
 
 ## Phase 4 (Skipped) — Full Favorites CRUD
 
@@ -211,14 +211,53 @@ Verified against installed source at `.venv/lib/python3.10/site-packages/tidalap
 
 **Tests**: 142 total (31 new artist tests)
 
+## Phase 6 Summary (Discovery & Browsing)
+
+Branch: `feature/discovery-browsing`
+
+### What was added
+
+**Flask endpoints** (`tidal_api/routes/discovery.py`):
+- `GET /api/discover/for-you` — personalized For You page
+- `GET /api/discover/explore` — editorial/trending Explore page
+- `GET /api/discover/moods` — list browsable moods (returns PageLinks with api_paths)
+- `GET /api/discover/moods/<api_path>` — drill into a mood's content
+- `GET /api/discover/genres` — list available genres with supported content types
+- `GET /api/discover/genres/<path>/<type>` — browse genre content by type
+
+**MCP tools** (`mcp_server/tools/discovery.py`):
+- `get_for_you_page`, `explore_tidal`, `get_tidal_moods`, `browse_tidal_mood`, `get_tidal_genres`, `browse_tidal_genre`
+
+**Helpers/formatters** (`tidal_api/utils.py`):
+- `serialize_page_categories(page)` — generic Page serializer reusing all existing formatters
+- `_format_page_category_item(item)` — type-dispatch with suffix fallback for subclasses
+- `format_page_link_data()`, `format_page_item_data()`, `format_genre_data()`
+- `_PAGE_ITEM_FORMATTERS` lookup dict for O(1) type → formatter dispatch
+
+**Mocks** (`tests/conftest.py`):
+- `MockPage`, `MockPageCategory`, `MockPageLink`, `MockPageItem`, `MockGenre`
+
+**Tests**: 228 total (37 new discovery tests: 21 Flask + 16 MCP)
+
+### Key tidalapi v0.8.3 learnings (Phase 6)
+
+- `session.for_you()`, `session.explore()`, `session.moods()` — NO params, return `Page`
+- `Page.__init__(session, title)` requires both args; use `Page(session, "")` for navigation
+- `Page.get(endpoint)` fetches page content from API path
+- `Page.categories` can be `None` — always guard before iterating
+- `session.genre` is a `Genre` instance; `session.genre.get_genres()` returns the list
+- Genre boolean attrs: `playlists`, `artists`, `albums`, `tracks`, `videos` (NOT `has_*`)
+- `genre.items(model_class)` takes a tidalapi class (e.g., `tidalapi.Album`), not a string
+- PageLink attrs: `title`, `api_path`, `icon`, `image_id`
+- PageItem attrs: `header`, `short_header`, `short_sub_header`, `type`, `artifact_id`, `featured`
+
 ## Next Steps
 
 1. ✅ Phase 3 merged (PR #9)
 2. ✅ Documentation patterns added (PR #10)
 3. ✅ Phase 5 merged (PR #11)
-4. **TODO:** Add comprehensive test coverage for Phase 5 playlist editing features (~50 new tests)
-5. Consider Phase 6: Discovery & browsing (genres, pages, moods, curated content)
-6. Consider Phase 4 (favorites CRUD) if user-requested
+4. **Phase 6** — Discovery & browsing implementation complete, ready for PR
+5. Consider Phase 4 (favorites CRUD) if user-requested
 
 ## Test Count by Phase
 
@@ -226,4 +265,5 @@ Verified against installed source at `.venv/lib/python3.10/site-packages/tidalap
 - Phase 1 (artists): +31 = 142 tests
 - Phase 2 (albums/tracks): +36 = 178 tests
 - Phase 3 (mixes): +13 = 191 tests
-- Phase 5 (playlist editing): +0 = 191 tests (implementation only, tests pending)
+- Phase 5 (playlist editing): +0 = 191 tests
+- Phase 6 (discovery): +37 = 228 tests
