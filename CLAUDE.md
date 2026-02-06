@@ -74,11 +74,13 @@ TIDAL MCP — an MCP server bridging Claude with the TIDAL music streaming API.
 
 ## Patterns
 
-- Flask endpoints: use `get_entity_or_404(session, "artist", id)` for lookups, `format_*_data()` for responses
-- Flask decorator stack: `@requires_tidal_auth` (injects `session` kwarg) + `@handle_endpoint_errors(action)` (catches errors, returns 500)
-- MCP tools: use `mcp_get/mcp_post/mcp_delete()` helpers (auth check + timeout + error handling)
-- MCP tool pattern: `@mcp.tool()` decorator, call `check_tidal_auth()` first, then `validate_string()`/`validate_list()` for inputs
-- Detail formatters extend base formatters via dict spread: `{**format_artist_data(artist), "bio": val}`
+See [docs/patterns.md](docs/patterns.md) for detailed implementation patterns with code examples.
+
+Quick reference:
+- Flask endpoints: `@requires_tidal_auth` + `@handle_endpoint_errors(action)` + `get_entity_or_404()`
+- MCP tools: `check_tidal_auth()` → `validate_*()` → `mcp_get/post/delete()`
+- Formatters: Base formatters + detail formatters extend via dict spread
+- Testing: One test class per endpoint/tool with standard coverage (success, not_found, not_authenticated)
 
 ## tidalapi Reference (v0.8.3)
 

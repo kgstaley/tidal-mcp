@@ -74,6 +74,8 @@ uv run ruff format .
 
 ## Architecture
 
+For detailed implementation patterns and code examples, see [patterns.md](patterns.md).
+
 TIDAL MCP uses a two-tier architecture:
 
 ```
