@@ -60,7 +60,11 @@ Update the MCP configuration file with the following (optionally set a custom po
 
 ### Custom OAuth Credentials (Optional)
 
-By default, the server uses `tidalapi`'s built-in OAuth client credentials. These are hardcoded in the library and may stop working if TIDAL revokes them. To avoid this, you can supply your own credentials via environment variables:
+By default, the server uses `tidalapi`'s built-in OAuth client credentials with a device code flow. These are hardcoded in the library and may stop working if TIDAL revokes them. To avoid this, you can supply your own credentials via environment variables.
+
+When custom credentials are set, authentication switches to the **PKCE flow**: the browser opens directly to TIDAL's login page, and after you sign in, TIDAL redirects back to a local callback endpoint that captures the tokens automatically. No manual code entry is needed.
+
+> **Note:** Personal TIDAL developer app credentials do not support the device code flow — you **must** use custom credentials with PKCE if you registered your own app in the [TIDAL Developer Portal](https://developer.tidal.com/).
 
 ```json
 {
@@ -83,8 +87,16 @@ By default, the server uses `tidalapi`'s built-in OAuth client credentials. Thes
 | `TIDAL_MCP_PORT` | Port for the Flask backend (default: `5050`) | No |
 | `TIDAL_CLIENT_ID` | Custom OAuth client ID for TIDAL API | No |
 | `TIDAL_CLIENT_SECRET` | Custom OAuth client secret for TIDAL API | No |
+| `TIDAL_REDIRECT_URI` | PKCE redirect URI (default: `http://localhost:{port}/api/auth/callback`) | No |
 
-If `TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET` are not set, the server falls back to `tidalapi`'s defaults.
+If `TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET` are not set, the server falls back to `tidalapi`'s defaults with the device code flow.
+
+**Setting up your TIDAL Developer App for PKCE:**
+
+1. Register an app at [developer.tidal.com](https://developer.tidal.com/)
+2. Set the redirect URI to `http://localhost:{your_port}/api/auth/callback` (e.g., `http://localhost:5100/api/auth/callback`)
+3. Copy the Client ID and Client Secret into your MCP config
+4. If using a non-default redirect URI, also set `TIDAL_REDIRECT_URI` to match exactly what you registered
 
 ### Steps to Install
 
@@ -101,3 +113,8 @@ If `TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET` are not set, the server falls back 
 2. Ask Claude to log in to TIDAL: *"Please log me in to TIDAL"*
 3. Your browser will open to TIDAL's login page — sign in with your TIDAL account
 4. Once authenticated, your session is saved locally and persists until it expires
+
+**How it works behind the scenes:**
+
+- **With custom credentials (PKCE flow):** The browser opens TIDAL's login page. After you sign in, TIDAL redirects to `localhost` where the server captures the authorization code and exchanges it for tokens. You'll see a "Login successful!" page in your browser.
+- **Without custom credentials (device code flow):** The browser opens a TIDAL page with a pre-filled device code. After you confirm, the server detects the authorization and saves the session.
