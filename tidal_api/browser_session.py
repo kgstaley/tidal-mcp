@@ -8,6 +8,8 @@ import tidalapi
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_FLASK_PORT = 5050
+
 
 class BrowserSession(tidalapi.Session):
     """
@@ -16,6 +18,7 @@ class BrowserSession(tidalapi.Session):
     Reads optional env vars to override tidalapi's built-in OAuth credentials:
       TIDAL_CLIENT_ID      — OAuth client ID
       TIDAL_CLIENT_SECRET   — OAuth client secret
+      TIDAL_REDIRECT_URI    — PKCE redirect URI (default: http://localhost:{port}/api/auth/callback)
     """
 
     def __init__(self, config: tidalapi.Config | None = None) -> None:
@@ -27,11 +30,47 @@ class BrowserSession(tidalapi.Session):
 
         if client_id:
             config.client_id = client_id
+            config.client_id_pkce = client_id
             logger.info("Using custom TIDAL_CLIENT_ID from environment")
         if client_secret:
             config.client_secret = client_secret
+            config.client_secret_pkce = client_secret
+
+        if client_id:
+            flask_port = int(os.environ.get("TIDAL_MCP_PORT", DEFAULT_FLASK_PORT))
+            default_redirect = f"http://localhost:{flask_port}/api/auth/callback"
+            config.pkce_uri_redirect = os.environ.get("TIDAL_REDIRECT_URI", default_redirect)
 
         super().__init__(config)
+
+    @property
+    def uses_custom_credentials(self) -> bool:
+        """Check if custom TIDAL developer credentials are configured."""
+        return bool(os.environ.get("TIDAL_CLIENT_ID"))
+
+    def get_pkce_login_url(self) -> str:
+        """Get the PKCE authorization URL for browser-based login."""
+        return self.pkce_login_url()
+
+    def complete_pkce_login(self, code: str) -> bool:
+        """
+        Complete the PKCE login flow using the authorization code from the callback.
+
+        Args:
+            code: The authorization code from TIDAL's redirect
+
+        Returns:
+            True if login succeeded, False otherwise
+        """
+        redirect_uri = self.config.pkce_uri_redirect
+        url_with_code = f"{redirect_uri}?code={code}"
+        try:
+            token_json = self.pkce_get_auth_token(url_with_code)
+            self.process_auth_token(token_json, is_pkce_token=True)
+            return self.check_login()
+        except Exception as e:
+            logger.error("PKCE login failed: %s", e, exc_info=True)
+            return False
 
     def login_oauth_simple(self, fn_print: Callable[[str], None] = print) -> None:
         """
