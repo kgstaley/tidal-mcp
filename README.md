@@ -70,6 +70,11 @@ See [docs/setup.md](docs/setup.md) for MCP client configuration and first-time a
 | [`add_tracks_to_playlist`](docs/tools/playlists.md#add_tracks_to_playlist) | Add tracks to a playlist |
 | [`remove_tracks_from_playlist`](docs/tools/playlists.md#remove_tracks_from_playlist) | Remove tracks from a playlist |
 | [`delete_tidal_playlist`](docs/tools/playlists.md#delete_tidal_playlist) | Delete a playlist |
+| [`get_artist_info`](docs/tools/artists.md#get_artist_info) | Get artist details, bio, and roles |
+| [`get_artist_top_tracks`](docs/tools/artists.md#get_artist_top_tracks) | Get an artist's top tracks |
+| [`get_artist_albums`](docs/tools/artists.md#get_artist_albums) | Get an artist's albums/EPs/singles |
+| [`get_similar_artists`](docs/tools/artists.md#get_similar_artists) | Find similar artists |
+| [`get_artist_radio`](docs/tools/artists.md#get_artist_radio) | Get radio tracks based on an artist |
 
 See [docs/workflows.md](docs/workflows.md) for common usage patterns and prompt starters.
 
