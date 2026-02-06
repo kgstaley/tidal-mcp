@@ -27,7 +27,10 @@ class TestLoginEndpoint:
         mock_session = MagicMock()
         mock_session.uses_custom_credentials = True
         mock_session.check_login.return_value = False
-        mock_session.get_pkce_login_url.return_value = "https://login.tidal.com/authorize?client_id=test"
+        mock_session.get_pkce_login_url.return_value = (
+            "https://login.tidal.com/authorize?client_id=test",
+            "test_state_abc",
+        )
         mocker.patch("tidal_api.routes.auth.BrowserSession", return_value=mock_session)
         mocker.patch("tidal_api.routes.auth.SESSION_FILE", MagicMock(exists=MagicMock(return_value=False)))
         mock_browser = mocker.patch("tidal_api.routes.auth.webbrowser.open")
@@ -38,6 +41,23 @@ class TestLoginEndpoint:
         assert data["status"] == "pending"
         assert data["flow"] == "pkce"
         mock_browser.assert_called_once_with("https://login.tidal.com/authorize?client_id=test")
+
+    def test_login_pkce_stores_state(self, client, mocker):
+        """Test login stores the PKCE state for CSRF validation."""
+        mock_session = MagicMock()
+        mock_session.uses_custom_credentials = True
+        mock_session.check_login.return_value = False
+        mock_session.get_pkce_login_url.return_value = ("https://login.tidal.com/authorize", "csrf_state_123")
+        mocker.patch("tidal_api.routes.auth.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.routes.auth.SESSION_FILE", MagicMock(exists=MagicMock(return_value=False)))
+        mocker.patch("tidal_api.routes.auth.webbrowser.open")
+
+        client.get("/api/auth/login")
+
+        from tidal_api.routes.auth import _get_expected_state, _is_pkce_pending
+
+        assert _is_pkce_pending()
+        assert _get_expected_state() == "csrf_state_123"
 
     def test_login_device_code_flow_success(self, client, mocker):
         """Test login with built-in credentials uses device code flow."""
@@ -68,6 +88,16 @@ class TestLoginEndpoint:
         assert response.status_code == 401
 
 
+TEST_STATE = "test_state_value"
+
+
+def _set_pending_with_state():
+    """Helper to set PKCE pending with a known state for callback tests."""
+    from tidal_api.routes.auth import _set_pkce_pending
+
+    _set_pkce_pending(True, state=TEST_STATE)
+
+
 class TestCallbackEndpoint:
     """Tests for /api/auth/callback endpoint."""
 
@@ -78,8 +108,9 @@ class TestCallbackEndpoint:
         mock_session.complete_pkce_login.return_value = True
         mocker.patch("tidal_api.routes.auth.BrowserSession", return_value=mock_session)
         mocker.patch("tidal_api.routes.auth.SESSION_FILE", session_file)
+        _set_pending_with_state()
 
-        response = client.get("/api/auth/callback?code=test_auth_code")
+        response = client.get(f"/api/auth/callback?code=test_auth_code&state={TEST_STATE}")
         assert response.status_code == 200
         assert b"Login successful" in response.data
         assert response.content_type == "text/html"
@@ -88,17 +119,19 @@ class TestCallbackEndpoint:
 
     def test_callback_missing_code(self, client, mocker):
         """Test callback returns error when code param is missing."""
-        mocker.patch("tidal_api.routes.auth._set_pkce_pending")
+        _set_pending_with_state()
 
-        response = client.get("/api/auth/callback")
+        response = client.get(f"/api/auth/callback?state={TEST_STATE}")
         assert response.status_code == 400
         assert b"Login failed" in response.data
 
     def test_callback_with_error_param(self, client, mocker):
         """Test callback handles TIDAL error redirect (e.g., user denied access)."""
-        mocker.patch("tidal_api.routes.auth._set_pkce_pending")
+        _set_pending_with_state()
 
-        response = client.get("/api/auth/callback?error=access_denied&error_description=User+denied+access")
+        response = client.get(
+            f"/api/auth/callback?error=access_denied&error_description=User+denied+access&state={TEST_STATE}"
+        )
         assert response.status_code == 400
         assert b"User denied access" in response.data
 
@@ -108,8 +141,9 @@ class TestCallbackEndpoint:
         mock_session.complete_pkce_login.return_value = False
         mocker.patch("tidal_api.routes.auth.BrowserSession", return_value=mock_session)
         mocker.patch("tidal_api.routes.auth.SESSION_FILE", tmp_path / "session.json")
+        _set_pending_with_state()
 
-        response = client.get("/api/auth/callback?code=bad_code")
+        response = client.get(f"/api/auth/callback?code=bad_code&state={TEST_STATE}")
         assert response.status_code == 401
         assert b"Token exchange failed" in response.data
 
@@ -120,13 +154,12 @@ class TestCallbackEndpoint:
         mocker.patch("tidal_api.routes.auth.BrowserSession", return_value=mock_session)
         mocker.patch("tidal_api.routes.auth.SESSION_FILE", tmp_path / "session.json")
 
-        # Set pending before callback
-        from tidal_api.routes.auth import _is_pkce_pending, _set_pkce_pending
+        from tidal_api.routes.auth import _is_pkce_pending
 
-        _set_pkce_pending(True)
+        _set_pending_with_state()
         assert _is_pkce_pending()
 
-        client.get("/api/auth/callback?code=test_code")
+        client.get(f"/api/auth/callback?code=test_code&state={TEST_STATE}")
 
         assert not _is_pkce_pending()
 
@@ -137,13 +170,39 @@ class TestCallbackEndpoint:
         mocker.patch("tidal_api.routes.auth.BrowserSession", return_value=mock_session)
         mocker.patch("tidal_api.routes.auth.SESSION_FILE", tmp_path / "session.json")
 
-        from tidal_api.routes.auth import _is_pkce_pending, _set_pkce_pending
+        from tidal_api.routes.auth import _is_pkce_pending
 
-        _set_pkce_pending(True)
+        _set_pending_with_state()
 
-        client.get("/api/auth/callback?code=bad_code")
+        client.get(f"/api/auth/callback?code=bad_code&state={TEST_STATE}")
 
         assert not _is_pkce_pending()
+
+    def test_callback_rejects_stale_request(self, client, mocker):
+        """Test callback rejects requests when no PKCE flow is in progress."""
+        from tidal_api.routes.auth import _set_pkce_pending
+
+        _set_pkce_pending(False)
+
+        response = client.get("/api/auth/callback?code=stale_code&state=anything")
+        assert response.status_code == 400
+        assert b"No login in progress" in response.data
+
+    def test_callback_rejects_state_mismatch(self, client, mocker):
+        """Test callback rejects requests with wrong state (CSRF protection)."""
+        _set_pending_with_state()
+
+        response = client.get("/api/auth/callback?code=test_code&state=wrong_state")
+        assert response.status_code == 403
+        assert b"Invalid state" in response.data
+
+    def test_callback_rejects_missing_state(self, client, mocker):
+        """Test callback rejects requests with no state parameter."""
+        _set_pending_with_state()
+
+        response = client.get("/api/auth/callback?code=test_code")
+        assert response.status_code == 403
+        assert b"Invalid state" in response.data
 
 
 class TestAuthStatusEndpoint:

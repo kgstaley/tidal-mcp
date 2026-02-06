@@ -1,8 +1,10 @@
 import logging
 import os
+import secrets
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import urlencode
 
 import tidalapi
 
@@ -48,13 +50,34 @@ class BrowserSession(tidalapi.Session):
         """Check if custom TIDAL developer credentials are configured."""
         return bool(os.environ.get("TIDAL_CLIENT_ID"))
 
-    def get_pkce_login_url(self) -> str:
-        """Get the PKCE authorization URL for browser-based login."""
-        return self.pkce_login_url()
+    def get_pkce_login_url(self) -> tuple[str, str]:
+        """Get the PKCE authorization URL with a CSRF state parameter.
+
+        Returns:
+            Tuple of (authorization_url, state) where state must be validated on callback.
+        """
+        state = secrets.token_urlsafe(32)
+        params = {
+            "response_type": "code",
+            "redirect_uri": self.config.pkce_uri_redirect,
+            "client_id": self.config.client_id_pkce,
+            "lang": "EN",
+            "appMode": "android",
+            "client_unique_key": self.config.client_unique_key,
+            "code_challenge": self.config.code_challenge,
+            "code_challenge_method": "S256",
+            "restrict_signup": "true",
+            "state": state,
+        }
+        url = self.config.api_pkce_auth + "?" + urlencode(params)
+        return url, state
 
     def complete_pkce_login(self, code: str) -> bool:
         """
         Complete the PKCE login flow using the authorization code from the callback.
+
+        Bypasses tidalapi's pkce_get_auth_token which rejects http:// redirect URIs.
+        Performs the token exchange POST directly.
 
         Args:
             code: The authorization code from TIDAL's redirect
@@ -62,10 +85,22 @@ class BrowserSession(tidalapi.Session):
         Returns:
             True if login succeeded, False otherwise
         """
-        redirect_uri = self.config.pkce_uri_redirect
-        url_with_code = f"{redirect_uri}?code={code}"
+        scope_default = "r_usr+w_usr+w_sub"
+        data = {
+            "code": code,
+            "client_id": self.config.client_id_pkce,
+            "grant_type": "authorization_code",
+            "redirect_uri": self.config.pkce_uri_redirect,
+            "scope": scope_default,
+            "code_verifier": self.config.code_verifier,
+            "client_unique_key": self.config.client_unique_key,
+        }
         try:
-            token_json = self.pkce_get_auth_token(url_with_code)
+            response = self.request_session.post(self.config.api_oauth2_token, data)
+            if not response.ok:
+                logger.error("PKCE token exchange failed: %s", response.text)
+                return False
+            token_json = response.json()
             self.process_auth_token(token_json, is_pkce_token=True)
             return self.check_login()
         except Exception as e:

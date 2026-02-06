@@ -13,22 +13,28 @@ logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
-# PKCE login coordination: tracks whether a PKCE callback has completed.
-# The callback endpoint sets this to True; the MCP tool polls /api/auth/status
-# to detect when auth is done (session file exists + valid).
-_pkce_login_lock = threading.Lock()
+# PKCE login coordination: tracks whether a PKCE flow is in progress and
+# stores the expected state parameter for CSRF validation.
+_pkce_lock = threading.Lock()
 _pkce_pending = False
+_pkce_expected_state: str | None = None
 
 
-def _set_pkce_pending(value: bool) -> None:
-    global _pkce_pending
-    with _pkce_login_lock:
+def _set_pkce_pending(value: bool, state: str | None = None) -> None:
+    global _pkce_pending, _pkce_expected_state
+    with _pkce_lock:
         _pkce_pending = value
+        _pkce_expected_state = state if value else None
 
 
 def _is_pkce_pending() -> bool:
-    with _pkce_login_lock:
+    with _pkce_lock:
         return _pkce_pending
+
+
+def _get_expected_state() -> str | None:
+    with _pkce_lock:
+        return _pkce_expected_state
 
 
 @auth_bp.route("/api/auth/login", methods=["GET"])
@@ -61,9 +67,9 @@ def login():
     try:
         if session.uses_custom_credentials:
             # PKCE flow: open browser, return pending
-            pkce_url = session.get_pkce_login_url()
+            pkce_url, state = session.get_pkce_login_url()
             webbrowser.open(pkce_url)
-            _set_pkce_pending(True)
+            _set_pkce_pending(True, state=state)
             return jsonify(
                 {
                     "status": "pending",
@@ -124,16 +130,31 @@ def _html_response(html: str, status: int = 200):
 @auth_bp.route("/api/auth/callback", methods=["GET"])
 def callback():
     """
-    PKCE callback endpoint. TIDAL redirects here with ?code=... after user login.
-    Exchanges the code for tokens, saves the session, and returns a success page.
+    PKCE callback endpoint. TIDAL redirects here with ?code=...&state=... after user login.
+    Validates state, exchanges the code for tokens, saves the session, and returns a success page.
     """
     try:
+        # Guard: reject callbacks when no PKCE flow is in progress
+        if not _is_pkce_pending():
+            logger.warning("PKCE callback received but no login flow is pending")
+            return _html_response(
+                _CALLBACK_ERROR_HTML.format(message="No login in progress. Please initiate login first."), 400
+            )
+
         code = request.args.get("code")
         if not code:
-            _set_pkce_pending(False)
             error_msg = request.args.get("error_description", request.args.get("error", "No authorization code"))
             logger.error("PKCE callback missing code: %s", error_msg)
             return _html_response(_CALLBACK_ERROR_HTML.format(message=error_msg), 400)
+
+        # CSRF protection: validate the state parameter
+        received_state = request.args.get("state")
+        expected_state = _get_expected_state()
+        if not received_state or received_state != expected_state:
+            logger.error("PKCE callback state mismatch: expected=%s, received=%s", expected_state, received_state)
+            return _html_response(
+                _CALLBACK_ERROR_HTML.format(message="Invalid state parameter. Possible CSRF attempt."), 403
+            )
 
         session = BrowserSession()
         login_success = session.complete_pkce_login(code)
