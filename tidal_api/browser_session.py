@@ -95,10 +95,13 @@ class BrowserSession(tidalapi.Session):
             "code_verifier": self.config.code_verifier,
             "client_unique_key": self.config.client_unique_key,
         }
+        # Confidential clients (personal developer apps) require client_secret
+        if self.config.client_secret_pkce:
+            data["client_secret"] = self.config.client_secret_pkce
         try:
             response = self.request_session.post(self.config.api_oauth2_token, data)
             if not response.ok:
-                logger.error("PKCE token exchange failed: %s", response.text)
+                logger.error("PKCE token exchange failed (HTTP %s): %s", response.status_code, response.text)
                 return False
             token_json = response.json()
             self.process_auth_token(token_json, is_pkce_token=True)
