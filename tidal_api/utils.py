@@ -487,3 +487,39 @@ def check_user_playlist(playlist, operation: str = "modify"):
     if operation == "remove" and not hasattr(playlist, "remove_by_id"):
         return jsonify({"error": "Cannot modify this playlist - not a user playlist"}), 403
     return None
+
+
+def format_mix_data(mix) -> dict:
+    """
+    Format a mix object into a standardized dictionary.
+
+    Args:
+        mix: TIDAL mix object
+
+    Returns:
+        Dictionary with standardized mix information
+    """
+    image_url = None
+    if hasattr(mix, "image") and callable(mix.image):
+        try:
+            image_url = mix.image(640)
+        except (ValueError, AttributeError):
+            pass
+
+    mix_type = safe_attr(mix, "mix_type")
+    if mix_type is not None and hasattr(mix_type, "value"):
+        mix_type = mix_type.value
+
+    updated = safe_attr(mix, "updated")
+    if updated is not None:
+        updated = str(updated)
+
+    return {
+        "id": mix.id,
+        "title": safe_attr(mix, "title"),
+        "sub_title": safe_attr(mix, "sub_title"),
+        "short_subtitle": safe_attr(mix, "short_subtitle"),
+        "mix_type": mix_type,
+        "image_url": image_url,
+        "updated": updated,
+    }
