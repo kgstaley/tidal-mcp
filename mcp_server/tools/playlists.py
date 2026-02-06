@@ -9,6 +9,7 @@ from utils import (
     error_response,
     mcp_delete,
     mcp_get,
+    mcp_patch,
     mcp_post,
     validate_list,
     validate_string,
@@ -364,6 +365,344 @@ def remove_tracks_from_playlist(playlist_id: str, track_ids: list[str]) -> dict:
             "playlist_id": playlist_id,
             "removed_count": data.get("removed_count", 0),
             "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
+        }
+
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")
+
+
+@mcp.tool()
+def edit_tidal_playlist(playlist_id: str, title: str = None, description: str = None) -> dict:
+    """
+    Edit a TIDAL playlist's metadata (title and/or description).
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Rename my playlist"
+    - "Change the description of my playlist"
+    - "Update playlist title to [new title]"
+    - "Edit my [playlist] playlist"
+    - Any request to change playlist metadata
+
+    This function edits an existing playlist's title and/or description.
+    At least one of title or description must be provided.
+    The user must be authenticated with TIDAL first.
+
+    When processing the results of this tool:
+    1. Confirm the playlist was updated successfully
+    2. Show the updated title and/or description
+    3. Provide a link to the playlist
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist to edit (required)
+        title: New title for the playlist (optional)
+        description: New description for the playlist (optional)
+
+    Returns:
+        A dictionary containing the status and updated playlist information
+    """
+    auth_error = check_tidal_auth("edit playlists")
+    if auth_error:
+        return auth_error
+
+    id_error = validate_string(playlist_id, "playlist ID")
+    if id_error:
+        return error_response(
+            "A playlist ID is required. You can get playlist IDs by using the get_user_playlists() function."
+        )
+
+    if title is None and description is None:
+        return error_response("At least one of 'title' or 'description' must be provided.")
+
+    if title is not None:
+        title_error = validate_string(title, "playlist title")
+        if title_error:
+            return title_error
+
+    try:
+        payload = {}
+        if title is not None:
+            payload["title"] = title
+        if description is not None:
+            payload["description"] = description
+
+        data = mcp_patch(f"/api/playlists/{playlist_id}", "playlist", payload=payload, resource_id=playlist_id)
+
+        if data.get("status") == "error":
+            return data
+
+        return {
+            "status": "success",
+            "message": data.get("message", "Playlist updated successfully"),
+            "playlist": data.get("playlist", {}),
+            "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
+        }
+
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")
+
+
+@mcp.tool()
+def set_tidal_playlist_visibility(playlist_id: str, public: bool) -> dict:
+    """
+    Set a TIDAL playlist's visibility (public or private).
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Make my playlist public"
+    - "Make my playlist private"
+    - "Change playlist visibility"
+    - "Set [playlist] to public/private"
+    - Any request to change playlist sharing settings
+
+    This function changes a playlist's visibility setting.
+    Public playlists can be discovered and shared with others.
+    Private playlists are only visible to you.
+
+    When processing the results of this tool:
+    1. Confirm the visibility was changed successfully
+    2. Mention whether it's now public or private
+    3. Provide a link to the playlist
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        public: True to make public, False to make private (required)
+
+    Returns:
+        A dictionary containing the status and new visibility setting
+    """
+    auth_error = check_tidal_auth("modify playlists")
+    if auth_error:
+        return auth_error
+
+    id_error = validate_string(playlist_id, "playlist ID")
+    if id_error:
+        return error_response(
+            "A playlist ID is required. You can get playlist IDs by using the get_user_playlists() function."
+        )
+
+    try:
+        visibility = "public" if public else "private"
+        data = mcp_post(f"/api/playlists/{playlist_id}/visibility/{visibility}", "playlist", resource_id=playlist_id)
+
+        if data.get("status") == "error":
+            return data
+
+        return {
+            "status": "success",
+            "message": data.get("message", f"Playlist is now {visibility}"),
+            "playlist_id": playlist_id,
+            "public": public,
+            "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
+        }
+
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")
+
+
+@mcp.tool()
+def clear_tidal_playlist(playlist_id: str, chunk_size: int = 50) -> dict:
+    """
+    Remove all tracks from a TIDAL playlist.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Clear my playlist"
+    - "Remove all songs from my playlist"
+    - "Empty my [playlist] playlist"
+    - "Delete all tracks from playlist"
+    - Any request to remove all tracks from a playlist
+
+    ⚠️ WARNING: This action is irreversible! All tracks will be permanently removed.
+
+    This function removes all tracks from a playlist in chunks.
+    The playlist itself is not deleted, only its contents.
+
+    When processing the results of this tool:
+    1. Confirm all tracks were removed
+    2. Remind user the playlist still exists (just empty)
+    3. Provide a link to the playlist
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist to clear (required)
+        chunk_size: Number of tracks to remove per batch (default: 50)
+
+    Returns:
+        A dictionary containing the status of the operation
+    """
+    auth_error = check_tidal_auth("modify playlists")
+    if auth_error:
+        return auth_error
+
+    id_error = validate_string(playlist_id, "playlist ID")
+    if id_error:
+        return error_response(
+            "A playlist ID is required. You can get playlist IDs by using the get_user_playlists() function."
+        )
+
+    try:
+        payload = {"chunk_size": chunk_size}
+        data = mcp_delete(
+            f"/api/playlists/{playlist_id}/tracks/all", "playlist", payload=payload, resource_id=playlist_id
+        )
+
+        if data.get("status") == "error":
+            return data
+
+        return {
+            "status": "success",
+            "message": data.get("message", "Playlist cleared successfully"),
+            "playlist_id": playlist_id,
+            "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
+        }
+
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")
+
+
+@mcp.tool()
+def reorder_tidal_playlist_tracks(playlist_id: str, indices: list[int], position: int) -> dict:
+    """
+    Reorder tracks in a TIDAL playlist by moving them to a new position.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Move track 3 to position 10"
+    - "Reorder tracks in my playlist"
+    - "Move the first two songs to the end"
+    - "Reorganize my playlist"
+    - Any request to change track order in a playlist
+
+    This function moves one or more tracks (specified by their indices) to a new position.
+    All indices are 0-based (first track is index 0).
+
+    When processing the results of this tool:
+    1. Confirm the tracks were reordered successfully
+    2. Mention how many tracks were moved and to which position
+    3. Provide a link to the playlist
+
+    Args:
+        playlist_id: The TIDAL ID of the playlist (required)
+        indices: List of track indices to move, 0-based (required)
+        position: Target position to move tracks to, 0-based (required)
+
+    Returns:
+        A dictionary containing the status of the operation
+
+    Example:
+        # Move tracks at positions 2, 5, and 7 to position 10
+        reorder_tidal_playlist_tracks("abc-123", [2, 5, 7], 10)
+    """
+    auth_error = check_tidal_auth("modify playlists")
+    if auth_error:
+        return auth_error
+
+    id_error = validate_string(playlist_id, "playlist ID")
+    if id_error:
+        return error_response(
+            "A playlist ID is required. You can get playlist IDs by using the get_user_playlists() function."
+        )
+
+    indices_error = validate_list(indices, "indices", "index")
+    if indices_error:
+        return error_response("At least one track index is required.")
+
+    if not all(isinstance(i, int) for i in indices):
+        return error_response("All indices must be integers.")
+
+    if not isinstance(position, int):
+        return error_response("Position must be an integer.")
+
+    try:
+        payload = {"indices": indices, "position": position}
+        data = mcp_post(
+            f"/api/playlists/{playlist_id}/tracks/reorder", "playlist", payload=payload, resource_id=playlist_id
+        )
+
+        if data.get("status") == "error":
+            return data
+
+        return {
+            "status": "success",
+            "message": data.get("message", f"Moved {len(indices)} track(s) to position {position}"),
+            "playlist_id": playlist_id,
+            "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
+        }
+
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")
+
+
+@mcp.tool()
+def merge_tidal_playlists(
+    target_playlist_id: str, source_playlist_id: str, allow_duplicates: bool = False, allow_missing: bool = True
+) -> dict:
+    """
+    Merge tracks from one TIDAL playlist into another.
+
+    USE THIS TOOL WHENEVER A USER ASKS FOR:
+    - "Combine these two playlists"
+    - "Merge [playlist A] into [playlist B]"
+    - "Add all tracks from [playlist A] to [playlist B]"
+    - "Combine my playlists"
+    - Any request to merge or combine playlists
+
+    This function copies all tracks from the source playlist into the target playlist.
+    The source playlist is not modified or deleted.
+
+    When processing the results of this tool:
+    1. Confirm the merge was successful
+    2. Report how many tracks were added
+    3. Provide links to both playlists
+
+    Args:
+        target_playlist_id: The playlist to merge tracks into (required)
+        source_playlist_id: The playlist to copy tracks from (required)
+        allow_duplicates: Whether to add tracks that already exist in target (default: False)
+        allow_missing: Whether to continue if some tracks are unavailable (default: True)
+
+    Returns:
+        A dictionary containing the status and number of tracks added
+    """
+    auth_error = check_tidal_auth("modify playlists")
+    if auth_error:
+        return auth_error
+
+    target_error = validate_string(target_playlist_id, "target playlist ID")
+    if target_error:
+        return error_response(
+            "A target playlist ID is required. You can get playlist IDs by using the get_user_playlists() function."
+        )
+
+    source_error = validate_string(source_playlist_id, "source playlist ID")
+    if source_error:
+        return error_response(
+            "A source playlist ID is required. You can get playlist IDs by using the get_user_playlists() function."
+        )
+
+    try:
+        payload = {
+            "source_playlist_id": source_playlist_id,
+            "allow_duplicates": allow_duplicates,
+            "allow_missing": allow_missing,
+        }
+
+        data = mcp_post(
+            f"/api/playlists/{target_playlist_id}/merge", "playlist", payload=payload, resource_id=target_playlist_id
+        )
+
+        if data.get("status") == "error":
+            return data
+
+        return {
+            "status": "success",
+            "message": data.get("message", "Playlists merged successfully"),
+            "target_playlist_id": target_playlist_id,
+            "source_playlist_id": source_playlist_id,
+            "tracks_added": data.get("tracks_added", 0),
+            "target_playlist_url": f"https://tidal.com/playlist/{target_playlist_id}",
+            "source_playlist_url": f"https://tidal.com/playlist/{source_playlist_id}",
         }
 
     except requests.RequestException as e:
