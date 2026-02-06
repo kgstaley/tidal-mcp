@@ -21,6 +21,19 @@ You: "Create a playlist called 'Late Night Jazz' with recommendations based on m
 Claude: [Uses get_playlist_tracks → recommend_tracks → create_tidal_playlist]
 ```
 
+## Managing Favorites
+
+```
+You: "Show me my favorite artists"
+Claude: [Uses get_favorites(type="artists")]
+
+You: "Save this album to my favorites" (after browsing)
+Claude: [Uses add_favorite(type="albums", id="album-id")]
+
+You: "Remove that track from my favorites"
+Claude: [Uses remove_favorite(type="tracks", id="track-id")]
+```
+
 ## Cleaning Up Playlists
 
 ```
@@ -38,6 +51,11 @@ Claude: [Uses get_playlist_tracks → remove_tracks_from_playlist]
 **Search & Discovery**
 - *"Search for albums by Radiohead and show me their most recent releases."*
 - *"Find tracks similar to 'Bohemian Rhapsody' and add them to a new playlist."*
+
+**Favorites**
+- *"Show me my favorite albums."*
+- *"Add this artist to my favorites."*
+- *"Remove that video from my saved items."*
 
 **Playlist Management**
 - *"Add the top 10 results from searching 'lo-fi beats' to my study playlist."*

@@ -29,6 +29,7 @@ import tools.albums  # noqa: E402, F401
 import tools.artists  # noqa: E402, F401
 import tools.auth  # noqa: E402, F401
 import tools.discovery  # noqa: E402, F401
+import tools.favorites  # noqa: E402, F401
 import tools.mixes  # noqa: E402, F401
 import tools.playlists  # noqa: E402, F401
 import tools.search  # noqa: E402, F401

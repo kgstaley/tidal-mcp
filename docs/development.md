@@ -9,32 +9,38 @@ tidal-mcp/
 │   ├── utils.py               # Shared HTTP helpers, validation, Flask lifecycle
 │   └── tools/
 │       ├── __init__.py
+│       ├── albums.py          # Album/track detail tools
+│       ├── artists.py         # Artist deep-dive tools
 │       ├── auth.py            # tidal_login tool
-│       ├── tracks.py          # get_favorite_tracks, recommend_tracks
+│       ├── discovery.py       # Discovery & browsing tools
+│       ├── favorites.py       # Favorites CRUD tools
+│       ├── mixes.py           # Mixes tools
 │       ├── playlists.py       # Playlist CRUD tools
-│       └── search.py          # search_tidal tool
+│       ├── search.py          # search_tidal tool
+│       └── tracks.py          # get_favorite_tracks, recommend_tracks
 ├── tidal_api/
 │   ├── app.py                 # Flask app factory + blueprint registration
 │   ├── browser_session.py     # Browser-based OAuth session management
 │   ├── utils.py               # Formatters, helpers, constants
 │   └── routes/
 │       ├── __init__.py
+│       ├── albums.py          # /api/albums/* endpoints
+│       ├── artists.py         # /api/artists/* endpoints
 │       ├── auth.py            # /api/auth/* endpoints
-│       ├── tracks.py          # /api/tracks, /api/recommendations/*
+│       ├── discovery.py       # /api/discover/* endpoints
+│       ├── favorites.py       # /api/favorites/* endpoints
+│       ├── mixes.py           # /api/mixes/* endpoints
 │       ├── playlists.py       # /api/playlists/* endpoints
-│       └── search.py          # /api/search endpoint
+│       ├── search.py          # /api/search endpoint
+│       └── tracks.py          # /api/tracks, /api/recommendations/*
 ├── tests/
 │   ├── conftest.py            # Shared mock classes
 │   ├── tidal_api/
 │   │   ├── conftest.py        # Flask test client fixtures
-│   │   ├── test_playlists.py
-│   │   ├── test_search.py
-│   │   └── test_utils.py
+│   │   └── test_*.py          # Flask endpoint tests
 │   └── mcp_server/
 │       ├── conftest.py        # MCP module setup + auth fixtures
-│       ├── test_playlists.py
-│       ├── test_search.py
-│       └── test_utils.py
+│       └── test_*.py          # MCP tool tests
 ├── docs/                      # Documentation
 ├── pyproject.toml             # Dependencies + tool configuration
 └── README.md

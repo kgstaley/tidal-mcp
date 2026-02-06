@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+#### Phase 4: Full Favorites CRUD
+- **Favorites tools** — 3 new MCP tools for managing favorites across all content types:
+  - `get_favorites(type, limit, order, order_direction)` — retrieve favorite artists, albums, tracks, videos, playlists, or mixes
+  - `add_favorite(type, id)` — add an item to favorites (artists, albums, tracks, videos, playlists)
+  - `remove_favorite(type, id)` — remove an item from favorites
+- 3 new Flask endpoints: `GET/POST/DELETE /api/favorites/<type>` with type dispatch tables
+- 6 supported content types: artists, albums, tracks, videos, playlists (full CRUD) + mixes (read-only)
+- Type dispatch pattern using lookup dicts for method/formatter/pagination routing
+- `MockFavorites` test class with all 16 methods (5 list + 5 add + 5 remove + mixes)
+- 39 new tests (24 Flask + 15 MCP)
+- Existing `GET /api/tracks` endpoint preserved (no breaking change)
+
 #### Phase 6: Discovery & Browsing
 - **Discovery tools** — 6 new MCP tools for browsing TIDAL's curated content:
   - `get_for_you_page` — personalized "For You" recommendations

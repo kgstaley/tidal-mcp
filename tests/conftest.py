@@ -327,6 +327,66 @@ class MockGenre:
         return []
 
 
+class MockFavorites:
+    """Mock TIDAL Favorites object for favorites CRUD tests."""
+
+    def __init__(self):
+        self._artists = []
+        self._albums = []
+        self._tracks = []
+        self._videos = []
+        self._playlists = []
+        self._mixes = []
+
+    def artists(self, limit=None, offset=0):
+        return self._artists
+
+    def albums(self, limit=None, offset=0):
+        return self._albums
+
+    def tracks(self, limit=None, offset=0, order="NAME", order_direction="ASC"):
+        return self._tracks
+
+    def videos(self):
+        return self._videos
+
+    def playlists(self, limit=None, offset=0):
+        return self._playlists
+
+    def mixes(self, limit=50, offset=0):
+        return self._mixes
+
+    def add_artist(self, artist_id: str) -> bool:
+        return True
+
+    def add_album(self, album_id: str) -> bool:
+        return True
+
+    def add_track(self, track_id: str) -> bool:
+        return True
+
+    def add_video(self, video_id: str) -> bool:
+        return True
+
+    def add_playlist(self, playlist_id: str) -> bool:
+        return True
+
+    def remove_artist(self, artist_id: str) -> bool:
+        return True
+
+    def remove_album(self, album_id: str) -> bool:
+        return True
+
+    def remove_track(self, track_id: str) -> bool:
+        return True
+
+    def remove_video(self, video_id: str) -> bool:
+        return True
+
+    def remove_playlist(self, playlist_id: str) -> bool:
+        return True
+
+
 class MockResponse:
     """Mock requests.Response object for MCP tool tests."""
 

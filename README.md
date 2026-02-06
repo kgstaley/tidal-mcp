@@ -18,6 +18,7 @@ The LLM filters and curates results using your input, finds similar tracks via T
 ## Features
 
 - **Music Recommendations**: Get personalized track recommendations based on your listening history **plus your custom criteria**
+- **Favorites Management**: Add, remove, and browse favorites across artists, albums, tracks, videos, playlists, and mixes
 - **Playlist Management**: Create, view, and manage your TIDAL playlists
 - **Catalog Search**: Search TIDAL for artists, tracks, albums, playlists, and videos
 - **Discovery & Browsing**: Explore personalized recommendations, trending content, moods, and genres
@@ -76,6 +77,9 @@ See [docs/setup.md](docs/setup.md) for MCP client configuration and first-time a
 | [`get_artist_albums`](docs/tools/artists.md#get_artist_albums) | Get an artist's albums/EPs/singles |
 | [`get_similar_artists`](docs/tools/artists.md#get_similar_artists) | Find similar artists |
 | [`get_artist_radio`](docs/tools/artists.md#get_artist_radio) | Get radio tracks based on an artist |
+| `get_favorites` | Get favorites by type (artists, albums, tracks, videos, playlists, mixes) |
+| `add_favorite` | Add an item to your favorites |
+| `remove_favorite` | Remove an item from your favorites |
 | `get_user_mixes` | Get your personalized mixes |
 | `get_mix_tracks` | Get tracks from a specific mix |
 | `get_for_you_page` | Get personalized "For You" recommendations |
