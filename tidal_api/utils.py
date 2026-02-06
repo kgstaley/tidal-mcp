@@ -1,5 +1,51 @@
 import functools
+import logging
+import os
+import tempfile
+from pathlib import Path
+
 from flask import jsonify, request
+
+logger = logging.getLogger(__name__)
+
+# --- Constants ---
+MAX_LIMIT = 5000
+DEFAULT_PAGE_SIZE = 50
+
+# Session file path
+token_path = os.path.join(tempfile.gettempdir(), "tidal-session-oauth.json")
+SESSION_FILE = Path(token_path)
+
+
+def _create_tidal_session():
+    """Create a new BrowserSession instance. Lazy import to avoid circular deps."""
+    from tidal_api.browser_session import BrowserSession
+
+    return BrowserSession()
+
+
+def requires_tidal_auth(f):
+    """
+    Decorator to ensure routes have an authenticated TIDAL session.
+    Returns 401 if not authenticated.
+    Passes the authenticated session to the decorated function.
+    """
+
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not SESSION_FILE.exists():
+            return jsonify({"error": "Not authenticated"}), 401
+
+        session = _create_tidal_session()
+        login_success = session.login_session_file_auto(SESSION_FILE)
+
+        if not login_success:
+            return jsonify({"error": "Authentication failed"}), 401
+
+        kwargs["session"] = session
+        return f(*args, **kwargs)
+
+    return decorated_function
 
 
 def handle_endpoint_errors(operation: str):
@@ -12,6 +58,7 @@ def handle_endpoint_errors(operation: str):
     Returns:
         Decorator function
     """
+
     def decorator(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
@@ -19,7 +66,9 @@ def handle_endpoint_errors(operation: str):
                 return f(*args, **kwargs)
             except Exception as e:
                 return jsonify({"error": f"Error {operation}: {str(e)}"}), 500
+
         return wrapper
+
     return decorator
 
 
@@ -35,7 +84,7 @@ def safe_attr(obj, attr: str, default=None):
     Returns:
         Attribute value or default
     """
-    return getattr(obj, attr, default) if hasattr(obj, attr) else default
+    return getattr(obj, attr, default)
 
 
 def tidal_track_url(track_id) -> str:
@@ -75,13 +124,13 @@ def format_user_playlist_data(playlist) -> dict:
     """
     return {
         "id": playlist.id,
-        "title": safe_attr(playlist, 'name'),
-        "description": safe_attr(playlist, 'description', ""),
-        "created": safe_attr(playlist, 'created'),
-        "last_updated": safe_attr(playlist, 'last_updated'),
-        "track_count": safe_attr(playlist, 'num_tracks', 0),
-        "duration": safe_attr(playlist, 'duration', 0),
-        "url": tidal_playlist_url(playlist.id)
+        "title": safe_attr(playlist, "name"),
+        "description": safe_attr(playlist, "description", ""),
+        "created": safe_attr(playlist, "created"),
+        "last_updated": safe_attr(playlist, "last_updated"),
+        "track_count": safe_attr(playlist, "num_tracks", 0),
+        "duration": safe_attr(playlist, "duration", 0),
+        "url": tidal_playlist_url(playlist.id),
     }
 
 
@@ -99,10 +148,10 @@ def format_track_data(track, source_track_id=None):
     track_data = {
         "id": track.id,
         "title": track.name,
-        "artist": safe_attr(track.artist, 'name', "Unknown"),
-        "album": safe_attr(track.album, 'name', "Unknown"),
-        "duration": safe_attr(track, 'duration', 0),
-        "url": tidal_track_url(track.id)
+        "artist": safe_attr(track.artist, "name", "Unknown"),
+        "album": safe_attr(track.album, "name", "Unknown"),
+        "duration": safe_attr(track, "duration", 0),
+        "url": tidal_track_url(track.id),
     }
 
     # Include source track ID if provided
@@ -164,15 +213,10 @@ def format_artist_data(artist):
         Dictionary with standardized artist information
     """
     picture_url = None
-    if hasattr(artist, 'picture') and callable(artist.picture):
+    if hasattr(artist, "picture") and callable(artist.picture):
         picture_url = artist.picture(640)
 
-    return {
-        "id": artist.id,
-        "name": artist.name,
-        "picture_url": picture_url,
-        "url": tidal_artist_url(artist.id)
-    }
+    return {"id": artist.id, "name": artist.name, "picture_url": picture_url, "url": tidal_artist_url(artist.id)}
 
 
 def format_album_data(album):
@@ -186,14 +230,14 @@ def format_album_data(album):
         Dictionary with standardized album information
     """
     artist_name = "Unknown"
-    if hasattr(album, 'artist'):
-        artist_name = safe_attr(album.artist, 'name', "Unknown")
+    if hasattr(album, "artist"):
+        artist_name = safe_attr(album.artist, "name", "Unknown")
 
     cover_url = None
-    if hasattr(album, 'image') and callable(album.image):
+    if hasattr(album, "image") and callable(album.image):
         cover_url = album.image(640)
 
-    release_date = safe_attr(album, 'release_date')
+    release_date = safe_attr(album, "release_date")
     if release_date is not None:
         release_date = str(release_date)
 
@@ -203,9 +247,9 @@ def format_album_data(album):
         "artist": artist_name,
         "cover_url": cover_url,
         "release_date": release_date,
-        "num_tracks": safe_attr(album, 'num_tracks'),
-        "duration": safe_attr(album, 'duration'),
-        "url": tidal_album_url(album.id)
+        "num_tracks": safe_attr(album, "num_tracks"),
+        "duration": safe_attr(album, "duration"),
+        "url": tidal_album_url(album.id),
     }
 
 
@@ -220,16 +264,16 @@ def format_playlist_search_data(playlist):
         Dictionary with standardized playlist information
     """
     creator_name = None
-    if hasattr(playlist, 'creator') and playlist.creator:
-        creator_name = safe_attr(playlist.creator, 'name')
+    if hasattr(playlist, "creator") and playlist.creator:
+        creator_name = safe_attr(playlist.creator, "name")
 
     return {
         "id": playlist.id,
-        "title": safe_attr(playlist, 'name'),
+        "title": safe_attr(playlist, "name"),
         "creator": creator_name,
-        "track_count": safe_attr(playlist, 'num_tracks', 0),
-        "duration": safe_attr(playlist, 'duration', 0),
-        "url": tidal_playlist_url(playlist.id)
+        "track_count": safe_attr(playlist, "num_tracks", 0),
+        "duration": safe_attr(playlist, "duration", 0),
+        "url": tidal_playlist_url(playlist.id),
     }
 
 
@@ -244,15 +288,15 @@ def format_video_data(video):
         Dictionary with standardized video information
     """
     artist_name = "Unknown"
-    if hasattr(video, 'artist'):
-        artist_name = safe_attr(video.artist, 'name', "Unknown")
+    if hasattr(video, "artist"):
+        artist_name = safe_attr(video.artist, "name", "Unknown")
 
     return {
         "id": video.id,
-        "title": safe_attr(video, 'name'),
+        "title": safe_attr(video, "name"),
         "artist": artist_name,
-        "duration": safe_attr(video, 'duration'),
-        "url": tidal_video_url(video.id)
+        "duration": safe_attr(video, "duration"),
+        "url": tidal_video_url(video.id),
     }
 
 
@@ -308,8 +352,8 @@ def check_user_playlist(playlist, operation: str = "modify"):
     Returns:
         None if OK, or error response tuple if not a user playlist
     """
-    if operation == "add" and not hasattr(playlist, 'add'):
+    if operation == "add" and not hasattr(playlist, "add"):
         return jsonify({"error": "Cannot modify this playlist - not a user playlist"}), 403
-    if operation == "remove" and not hasattr(playlist, 'remove_by_id'):
+    if operation == "remove" and not hasattr(playlist, "remove_by_id"):
         return jsonify({"error": "Cannot modify this playlist - not a user playlist"}), 403
     return None
