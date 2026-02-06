@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+err() { echo "Error: $*" >&2; }
+
+echo "==> Checking for uv..."
+if ! command -v uv &>/dev/null; then
+  err "uv is not installed."
+  echo "Install it with: curl -LsSf https://astral.sh/uv/install.sh | sh" >&2
+  echo "Or see: https://docs.astral.sh/uv/getting-started/installation/" >&2
+  exit 1
+fi
+
+echo "==> Checking Python version..."
+
+if [[ ! -f .python-version ]]; then
+  err ".python-version file not found in project root."
+  exit 1
+fi
+
+REQUIRED_VERSION=$(cat .python-version)
+
+if [[ ! "$REQUIRED_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+  err "Invalid version format in .python-version: '$REQUIRED_VERSION' (expected major.minor, e.g. 3.10)"
+  exit 1
+fi
+
+check_python_version() {
+  local installed
+  installed=$(python3 --version 2>/dev/null | awk '{print $2}') || true
+  if [[ -z "$installed" ]]; then
+    err "python3 not found on PATH."
+    exit 1
+  fi
+
+  local req_major req_minor inst_major inst_minor
+  req_major="${REQUIRED_VERSION%%.*}"
+  req_minor="${REQUIRED_VERSION#*.}"
+  inst_major="${installed%%.*}"
+  inst_minor="${installed#*.}"
+  inst_minor="${inst_minor%%.*}"
+
+  if (( inst_major < req_major || (inst_major == req_major && inst_minor < req_minor) )); then
+    err "Python $installed found, but >=$REQUIRED_VERSION is required."
+    exit 1
+  fi
+
+  echo "Python $installed meets minimum $REQUIRED_VERSION"
+}
+
+check_python_version
+
+echo "==> Installing dependencies..."
+uv sync --all-extras
+
+echo "==> Bootstrap complete!"

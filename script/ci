@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+err() { echo "Error: $*" >&2; }
+
+for subscript in script/lint script/test; do
+  if [[ ! -x "$subscript" ]]; then
+    err "$subscript is missing or not executable. Run script/bootstrap first."
+    exit 1
+  fi
+done
+
+echo "========================================"
+echo "  Lint"
+echo "========================================"
+script/lint
+
+echo ""
+echo "========================================"
+echo "  Tests"
+echo "========================================"
+script/test
+
+echo ""
+echo "========================================"
+echo "  CI passed!"
+echo "========================================"

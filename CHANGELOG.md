@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Development scripts** — `script/` directory following the "Scripts to Rule Them All" pattern:
+  - `script/bootstrap` — check prerequisites (uv, Python 3.10+) and install all dependencies
+  - `script/start` — launch MCP dev server (default) or Flask-only (`--flask`)
+  - `script/test` — pytest passthrough with full argument forwarding
+  - `script/lint` — ruff check + format (`--fix` for auto-fix mode)
+  - `script/ci` — run full lint + test pipeline locally, mirroring GitHub Actions
+
 ### Fixed
 - **MCP server double module loading** — `mcp run` loaded `server.py` under a synthetic module name (`server_module`), causing tool files to re-import it as `server` and create a second `FastMCP` instance with zero tools. Extracted the `FastMCP` instance into `mcp_server/mcp_app.py` so all modules share one instance.
 - **Flask subprocess failing to start** — The subprocess inherited Claude Desktop's working directory (not the project root), so `uv run` couldn't find `pyproject.toml` and `tidal_api` imports failed silently. Added `cwd=PROJECT_ROOT` and `stderr=sys.stderr` to `Popen`.

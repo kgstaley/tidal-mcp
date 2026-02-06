@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+err() { echo "Error: $*" >&2; }
+
+usage() {
+  cat <<USAGE
+Usage: script/start [--flask]
+
+  (no args)   Start the MCP dev server with web UI (auto-starts Flask)
+  --flask     Start Flask backend only on port \${TIDAL_MCP_PORT:-5050}
+USAGE
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ -n "${1:-}" && "${1:-}" != "--flask" ]]; then
+  err "Unknown option: $1"
+  usage >&2
+  exit 1
+fi
+
+if ! command -v uv &>/dev/null; then
+  err "uv is not installed. Run script/bootstrap first."
+  exit 1
+fi
+
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source .env
+  set +a
+fi
+
+if [[ "${1:-}" == "--flask" ]]; then
+  echo "==> Starting Flask backend on port ${TIDAL_MCP_PORT:-5050}..."
+  exec uv run python tidal_api/app.py
+else
+  echo "==> Starting MCP dev server (Flask auto-starts as subprocess)..."
+  exec uv run mcp dev mcp_server/server.py
+fi
