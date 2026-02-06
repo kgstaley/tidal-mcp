@@ -1,8 +1,15 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 ## Project Overview
 
 TIDAL MCP — an MCP server bridging Claude with the TIDAL music streaming API.
+
+## Setup
+
+- Python 3.10+ required (see `.python-version`)
+- Install all dependencies: `uv sync --all-extras`
 
 ## Architecture
 
@@ -11,6 +18,13 @@ TIDAL MCP — an MCP server bridging Claude with the TIDAL music streaming API.
 - `tidal_api/utils.py` — Shared formatters, helpers, constants
 - `mcp_server/utils.py` — MCP-side validation, HTTP helpers, error handling
 - `tests/` — Nested test modules mirroring source layout
+
+## Runtime Architecture
+
+- MCP server (`mcp_server/server.py`) auto-starts the Flask backend as a subprocess on port 5050 (override with `TIDAL_MCP_PORT` env var)
+- Flask process cleaned up via `atexit` handler
+- MCP tools call Flask endpoints over HTTP using a shared `requests.Session`
+- Auth: OAuth via browser → session saved to `tempfile.gettempdir()/tidal-session-oauth.json` → reloaded per-request
 
 ## Commands
 
@@ -40,9 +54,15 @@ TIDAL MCP — an MCP server bridging Claude with the TIDAL music streaming API.
 
 - Every new feature must include tests (Flask endpoints + MCP tools + formatters)
 - Tests in `tests/tidal_api/` for Flask, `tests/mcp_server/` for MCP
-- Shared mock classes in `tests/conftest.py`
 - All tests must pass before merging: `uv run python3 -m pytest`
 - **When tests fail due to unexpected API responses or method signatures**, verify against the actual tidalapi library source and TIDAL API docs before assuming test/code is correct. Check the installed package at `.venv/lib/python3.10/site-packages/tidalapi/` for exact method signatures, parameter names, and return types. Do not guess — read the source.
+- Shared mock classes in `tests/conftest.py`: `MockArtist`, `MockAlbum`, `MockTrack`, `MockCreator`, `MockPlaylist`, `MockUserPlaylist`, `MockVideo`, `MockResponse`
+- Flask test fixtures in `tests/tidal_api/conftest.py`: `client`, `mock_session_file`
+- MCP test fixtures in `tests/mcp_server/conftest.py`: `mock_auth_success`, `mock_auth_failure` (mock HTTP, not Flask)
+
+## CI
+
+- GitHub Actions: lint + format check + tests on Python 3.10, 3.11, 3.12
 
 ## Git Conventions
 
@@ -55,7 +75,9 @@ TIDAL MCP — an MCP server bridging Claude with the TIDAL music streaming API.
 ## Patterns
 
 - Flask endpoints: use `get_entity_or_404(session, "artist", id)` for lookups, `format_*_data()` for responses
+- Flask decorator stack: `@requires_tidal_auth` (injects `session` kwarg) + `@handle_endpoint_errors(action)` (catches errors, returns 500)
 - MCP tools: use `mcp_get/mcp_post/mcp_delete()` helpers (auth check + timeout + error handling)
+- MCP tool pattern: `@mcp.tool()` decorator, call `check_tidal_auth()` first, then `validate_string()`/`validate_list()` for inputs
 - Detail formatters extend base formatters via dict spread: `{**format_artist_data(artist), "bio": val}`
 
 ## tidalapi Reference (v0.8.3)
