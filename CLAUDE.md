@@ -48,7 +48,8 @@ TIDAL MCP — an MCP server bridging Claude with the TIDAL music streaming API.
 
 - Each feature on its own branch, branched from `main`
 - Small, focused commits (one logical change per commit)
-- Draft PRs to `kgstaley/tidal-mcp` via `gh pr create --draft`
+- PRs go to user's fork (`kgstaley/tidal-mcp`), not upstream (`yuhuacheng/tidal-mcp`), unless explicitly told otherwise
+- Draft PRs via `gh pr create --draft --repo kgstaley/tidal-mcp`
 - No "Co-Authored-By" lines in commit messages
 
 ## Patterns
@@ -66,4 +67,5 @@ Key gotchas discovered from the installed library source:
 - `artist.get_top_tracks(limit=None, offset=0)` — `None` limit falls back to session default (1000)
 - `artist.roles` is `Optional[List[Role]]` where `Role` is an Enum — must serialize `.value` for JSON
 - `session.search()` returns a `TypedDict` (dict), not an object — use `results.get('key', [])` not `results.key`
+- `fetch_all_paginated` calls `fetch_fn(limit=..., offset=...)` with keyword args — pass tidalapi methods directly (no lambda wrapper needed)
 - Always check `.venv/lib/python3.10/site-packages/tidalapi/` for ground truth on method signatures
