@@ -74,7 +74,7 @@ class TestSearchTidal:
     def test_search_not_authenticated(self, mock_auth_failure):
         """Test search when not authenticated."""
         # Import here to use mocked modules
-        from server import search_tidal
+        from tools.search import search_tidal
 
         result = search_tidal("test query")
 
@@ -88,7 +88,7 @@ class TestSearchTidal:
             return_value=MockResponse({"authenticated": True}),
         )
 
-        from server import search_tidal
+        from tools.search import search_tidal
 
         result = search_tidal("")
 
@@ -116,7 +116,7 @@ class TestSearchTidal:
 
         mocker.patch("requests.get", side_effect=mock_get)
 
-        from server import search_tidal
+        from tools.search import search_tidal
 
         result = search_tidal("test")
 
@@ -150,7 +150,7 @@ class TestSearchTidal:
 
         mocker.patch("requests.get", side_effect=mock_get)
 
-        from server import search_tidal
+        from tools.search import search_tidal
 
         result = search_tidal("test", types=["artists", "tracks"])
 
@@ -181,7 +181,7 @@ class TestSearchTidal:
 
         mocker.patch("requests.get", side_effect=mock_get)
 
-        from server import search_tidal
+        from tools.search import search_tidal
 
         result = search_tidal("test", limit=30)
 
@@ -194,7 +194,7 @@ class TestAddTracksToPlaylist:
 
     def test_add_tracks_not_authenticated(self, mock_auth_failure):
         """Test adding tracks when not authenticated."""
-        from server import add_tracks_to_playlist
+        from tools.playlists import add_tracks_to_playlist
 
         result = add_tracks_to_playlist("playlist-123", ["track-1"])
 
@@ -208,7 +208,7 @@ class TestAddTracksToPlaylist:
             return_value=MockResponse({"authenticated": True}),
         )
 
-        from server import add_tracks_to_playlist
+        from tools.playlists import add_tracks_to_playlist
 
         result = add_tracks_to_playlist("", ["track-1"])
 
@@ -222,7 +222,7 @@ class TestAddTracksToPlaylist:
             return_value=MockResponse({"authenticated": True}),
         )
 
-        from server import add_tracks_to_playlist
+        from tools.playlists import add_tracks_to_playlist
 
         result = add_tracks_to_playlist("playlist-123", [])
 
@@ -249,7 +249,7 @@ class TestAddTracksToPlaylist:
             ),
         )
 
-        from server import add_tracks_to_playlist
+        from tools.playlists import add_tracks_to_playlist
 
         result = add_tracks_to_playlist("playlist-123", ["track-1", "track-2"])
 
@@ -271,7 +271,7 @@ class TestAddTracksToPlaylist:
             return_value=MockResponse({"error": "Playlist not found"}, 404),
         )
 
-        from server import add_tracks_to_playlist
+        from tools.playlists import add_tracks_to_playlist
 
         result = add_tracks_to_playlist("invalid-playlist", ["track-1"])
 
@@ -300,7 +300,7 @@ class TestAddTracksToPlaylist:
         mocker.patch("requests.get", side_effect=mock_get)
         mocker.patch("requests.post", side_effect=mock_post)
 
-        from server import add_tracks_to_playlist
+        from tools.playlists import add_tracks_to_playlist
 
         result = add_tracks_to_playlist(
             "playlist-123",
@@ -319,7 +319,7 @@ class TestRemoveTracksFromPlaylist:
 
     def test_remove_tracks_not_authenticated(self, mock_auth_failure):
         """Test removing tracks when not authenticated."""
-        from server import remove_tracks_from_playlist
+        from tools.playlists import remove_tracks_from_playlist
 
         result = remove_tracks_from_playlist("playlist-123", ["track-1"])
 
@@ -333,7 +333,7 @@ class TestRemoveTracksFromPlaylist:
             return_value=MockResponse({"authenticated": True}),
         )
 
-        from server import remove_tracks_from_playlist
+        from tools.playlists import remove_tracks_from_playlist
 
         result = remove_tracks_from_playlist("", ["track-1"])
 
@@ -347,7 +347,7 @@ class TestRemoveTracksFromPlaylist:
             return_value=MockResponse({"authenticated": True}),
         )
 
-        from server import remove_tracks_from_playlist
+        from tools.playlists import remove_tracks_from_playlist
 
         result = remove_tracks_from_playlist("playlist-123", [])
 
@@ -374,7 +374,7 @@ class TestRemoveTracksFromPlaylist:
             ),
         )
 
-        from server import remove_tracks_from_playlist
+        from tools.playlists import remove_tracks_from_playlist
 
         result = remove_tracks_from_playlist("playlist-123", ["track-1", "track-2"])
 
@@ -396,7 +396,7 @@ class TestRemoveTracksFromPlaylist:
             return_value=MockResponse({"error": "Playlist not found"}, 404),
         )
 
-        from server import remove_tracks_from_playlist
+        from tools.playlists import remove_tracks_from_playlist
 
         result = remove_tracks_from_playlist("invalid-playlist", ["track-1"])
 
@@ -417,7 +417,7 @@ class TestRemoveTracksFromPlaylist:
             return_value=MockResponse({"error": "Cannot modify this playlist"}, 403),
         )
 
-        from server import remove_tracks_from_playlist
+        from tools.playlists import remove_tracks_from_playlist
 
         result = remove_tracks_from_playlist("not-my-playlist", ["track-1"])
 
