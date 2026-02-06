@@ -1,0 +1,135 @@
+"""Artist routes for TIDAL API."""
+
+import logging
+
+from flask import Blueprint, jsonify, request
+
+from tidal_api.utils import (
+    bound_limit,
+    fetch_all_paginated,
+    format_album_data,
+    format_artist_data,
+    format_artist_detail_data,
+    format_track_data,
+    get_entity_or_404,
+    handle_endpoint_errors,
+    requires_tidal_auth,
+)
+
+logger = logging.getLogger(__name__)
+
+artists_bp = Blueprint("artists", __name__)
+
+
+@artists_bp.route("/api/artists/<artist_id>", methods=["GET"])
+@requires_tidal_auth
+@handle_endpoint_errors("fetching artist info")
+def get_artist(artist_id: str, session):
+    """Get detailed information about an artist."""
+    artist, error = get_entity_or_404(session, "artist", artist_id)
+    if error:
+        return error
+
+    bio = None
+    try:
+        bio = artist.get_bio()
+    except Exception:
+        logger.debug("Bio not available for artist %s", artist_id)
+
+    return jsonify(format_artist_detail_data(artist, bio=bio))
+
+
+@artists_bp.route("/api/artists/<artist_id>/top-tracks", methods=["GET"])
+@requires_tidal_auth
+@handle_endpoint_errors("fetching artist top tracks")
+def get_artist_top_tracks(artist_id: str, session):
+    """Get an artist's top tracks."""
+    artist, error = get_entity_or_404(session, "artist", artist_id)
+    if error:
+        return error
+
+    limit = bound_limit(request.args.get("limit", default=20, type=int))
+
+    tracks = artist.get_top_tracks(limit=limit)
+    track_list = [format_track_data(t) for t in tracks]
+
+    return jsonify({"artist_id": artist_id, "tracks": track_list, "total": len(track_list)})
+
+
+@artists_bp.route("/api/artists/<artist_id>/albums", methods=["GET"])
+@requires_tidal_auth
+@handle_endpoint_errors("fetching artist albums")
+def get_artist_albums(artist_id: str, session):
+    """
+    Get an artist's albums.
+
+    Query params:
+        filter: Album type filter — "albums", "ep_singles", "other" (default: "albums")
+        limit: Maximum results (default: 50, max: 5000)
+    """
+    artist, error = get_entity_or_404(session, "artist", artist_id)
+    if error:
+        return error
+
+    album_filter = request.args.get("filter", "albums")
+    limit = bound_limit(request.args.get("limit", default=50, type=int))
+
+    filter_method_names = {
+        "albums": "get_albums",
+        "ep_singles": "get_ep_singles",
+        "other": "get_other",
+    }
+
+    method_name = filter_method_names.get(album_filter)
+    if not method_name:
+        return jsonify({"error": f"Invalid filter: {album_filter}. Use: albums, ep_singles, other"}), 400
+
+    fetch_fn = getattr(artist, method_name)
+
+    albums = fetch_all_paginated(fetch_fn, limit=limit)
+    album_list = [format_album_data(a) for a in albums]
+
+    return jsonify(
+        {
+            "artist_id": artist_id,
+            "filter": album_filter,
+            "albums": album_list,
+            "total": len(album_list),
+        }
+    )
+
+
+@artists_bp.route("/api/artists/<artist_id>/similar", methods=["GET"])
+@requires_tidal_auth
+@handle_endpoint_errors("fetching similar artists")
+def get_similar_artists(artist_id: str, session):
+    """Get artists similar to the given artist."""
+    artist, error = get_entity_or_404(session, "artist", artist_id)
+    if error:
+        return error
+
+    similar = artist.get_similar()
+    artist_list = [format_artist_data(a) for a in similar]
+
+    return jsonify({"artist_id": artist_id, "artists": artist_list, "total": len(artist_list)})
+
+
+@artists_bp.route("/api/artists/<artist_id>/radio", methods=["GET"])
+@requires_tidal_auth
+@handle_endpoint_errors("fetching artist radio")
+def get_artist_radio(artist_id: str, session):
+    """Get radio tracks based on the given artist.
+
+    Note: tidalapi's get_radio() returns up to 100 tracks (hardcoded).
+    The limit parameter truncates the result client-side.
+    """
+    artist, error = get_entity_or_404(session, "artist", artist_id)
+    if error:
+        return error
+
+    limit = bound_limit(request.args.get("limit", default=100, type=int), max_n=100)
+
+    tracks = artist.get_radio()
+    track_list = [format_track_data(t) for t in tracks[:limit]]
+
+    return jsonify({"artist_id": artist_id, "tracks": track_list, "total": len(track_list)})

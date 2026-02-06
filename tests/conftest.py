@@ -7,9 +7,31 @@ class MockArtist:
     def __init__(self, id=123, name="Test Artist"):
         self.id = id
         self.name = name
+        self.roles = []
 
-    def picture(self, size):
-        return f"https://tidal.com/picture/{self.id}/{size}"
+    def image(self, dimensions=320):
+        return f"https://tidal.com/image/{self.id}/{dimensions}x{dimensions}"
+
+    def get_bio(self):
+        return None
+
+    def get_top_tracks(self, limit=None, offset=0):
+        return []
+
+    def get_albums(self, limit=None, offset=0):
+        return []
+
+    def get_ep_singles(self, limit=None, offset=0):
+        return []
+
+    def get_other(self, limit=None, offset=0):
+        return []
+
+    def get_similar(self):
+        return []
+
+    def get_radio(self):
+        return []
 
 
 class MockAlbum:

@@ -25,6 +25,7 @@ start_flask_app()
 atexit.register(shutdown_flask_app)
 
 # Import tool modules to register them with the mcp instance
+import tools.artists  # noqa: E402, F401
 import tools.auth  # noqa: E402, F401
 import tools.playlists  # noqa: E402, F401
 import tools.search  # noqa: E402, F401

@@ -5,7 +5,7 @@ import os
 
 from flask import Flask, jsonify
 
-from tidal_api.routes import auth_bp, playlists_bp, search_bp, tracks_bp
+from tidal_api.routes import artists_bp, auth_bp, playlists_bp, search_bp, tracks_bp
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ def create_app() -> Flask:
     app = Flask(__name__)
 
     # Register blueprints
+    app.register_blueprint(artists_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(tracks_bp)
     app.register_blueprint(playlists_bp)
