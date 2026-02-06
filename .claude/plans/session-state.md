@@ -17,7 +17,7 @@ Full plan: `.claude/plans/clever-twirling-newell.md` (also at `.claude/plans/in-
 | 0 — Modularize routes/tools | `refactor/modularize-routes-tools` | **Merged** | #4 |
 | 1 — Artist deep-dive | `feature/artist-deep-dive` | **Merged** | #5 |
 | 2 — Album & track details | `feature/album-track-details` | **Merged** | #8 |
-| 3 — Mixes & radio | `feature/mixes-radio` | **Ready for PR** | — |
+| 3 — Mixes & radio | `feature/mixes-radio` | **PR open (draft)** | #9 |
 | 4 — Full favorites CRUD | — | Not started | — |
 | 5 — Playlist enhancements | — | Not started | — |
 | 6 — Discovery & browsing | — | Not started | — |
