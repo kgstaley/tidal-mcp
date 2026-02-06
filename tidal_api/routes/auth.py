@@ -13,18 +13,22 @@ logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
-# PKCE login coordination: tracks whether a PKCE flow is in progress and
-# stores the expected state parameter for CSRF validation.
+# PKCE login coordination: tracks whether a PKCE flow is in progress,
+# stores the expected state parameter for CSRF validation, and preserves
+# the BrowserSession that generated the PKCE URL (its code_verifier must
+# match the code_challenge sent to TIDAL).
 _pkce_lock = threading.Lock()
 _pkce_pending = False
 _pkce_expected_state: str | None = None
+_pkce_session: BrowserSession | None = None
 
 
-def _set_pkce_pending(value: bool, state: str | None = None) -> None:
-    global _pkce_pending, _pkce_expected_state
+def _set_pkce_pending(value: bool, state: str | None = None, session: BrowserSession | None = None) -> None:
+    global _pkce_pending, _pkce_expected_state, _pkce_session
     with _pkce_lock:
         _pkce_pending = value
         _pkce_expected_state = state if value else None
+        _pkce_session = session if value else None
 
 
 def _is_pkce_pending() -> bool:
@@ -35,6 +39,11 @@ def _is_pkce_pending() -> bool:
 def _get_expected_state() -> str | None:
     with _pkce_lock:
         return _pkce_expected_state
+
+
+def _get_pkce_session() -> BrowserSession | None:
+    with _pkce_lock:
+        return _pkce_session
 
 
 @auth_bp.route("/api/auth/login", methods=["GET"])
@@ -69,7 +78,7 @@ def login():
             # PKCE flow: open browser, return pending
             pkce_url, state = session.get_pkce_login_url()
             webbrowser.open(pkce_url)
-            _set_pkce_pending(True, state=state)
+            _set_pkce_pending(True, state=state, session=session)
             return jsonify(
                 {
                     "status": "pending",
@@ -156,7 +165,12 @@ def callback():
                 _CALLBACK_ERROR_HTML.format(message="Invalid state parameter. Possible CSRF attempt."), 403
             )
 
-        session = BrowserSession()
+        session = _get_pkce_session()
+        if not session:
+            logger.error("PKCE session lost — cannot complete token exchange")
+            return _html_response(
+                _CALLBACK_ERROR_HTML.format(message="Session expired. Please try logging in again."), 500
+            )
         login_success = session.complete_pkce_login(code)
 
         if login_success:
