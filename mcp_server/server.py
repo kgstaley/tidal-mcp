@@ -1,6 +1,7 @@
 """TIDAL MCP Server — FastMCP initialization and tool registration."""
 
 import atexit
+import logging
 
 from mcp.server.fastmcp import FastMCP
 from utils import (
@@ -9,14 +10,15 @@ from utils import (
     start_flask_app,
 )
 
-# Print the port being used for debugging
-print(f"TIDAL MCP starting on port {FLASK_PORT}")
+logger = logging.getLogger(__name__)
+
+logger.info("TIDAL MCP starting on port %s", FLASK_PORT)
 
 # Create an MCP server
 mcp = FastMCP("TIDAL MCP")
 
 # Start the Flask app when this script is loaded
-print("MCP server module is being loaded. Starting Flask app...")
+logger.info("MCP server module is being loaded. Starting Flask app...")
 start_flask_app()
 
 # Register the shutdown function to be called when the MCP server exits

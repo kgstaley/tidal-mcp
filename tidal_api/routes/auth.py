@@ -1,9 +1,13 @@
 """Authentication routes for TIDAL API."""
 
+import logging
+
 from flask import Blueprint, jsonify
 
 from tidal_api.browser_session import BrowserSession
 from tidal_api.utils import SESSION_FILE
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -17,7 +21,7 @@ def login():
     session = BrowserSession()
 
     def log_message(msg):
-        print(f"TIDAL AUTH: {msg}")
+        logger.info("TIDAL AUTH: %s", msg)
 
     try:
         login_success = session.login_session_file_auto(SESSION_FILE, fn_print=log_message)

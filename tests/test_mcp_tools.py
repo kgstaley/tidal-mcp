@@ -1,4 +1,4 @@
-"""Unit tests for mcp_server/server.py MCP tools."""
+"""Unit tests for mcp_server MCP tools."""
 
 import sys
 from pathlib import Path
@@ -24,12 +24,17 @@ mock_utils.start_flask_app = MagicMock()
 mock_utils.shutdown_flask_app = MagicMock()
 mock_utils.FLASK_APP_URL = "http://localhost:5050"
 mock_utils.FLASK_PORT = 5050
+mock_utils.DEFAULT_TIMEOUT = 30
 # Use real implementations for helper functions
 mock_utils.error_response = mcp_utils_real.error_response
 mock_utils.check_tidal_auth = mcp_utils_real.check_tidal_auth
 mock_utils.handle_api_response = mcp_utils_real.handle_api_response
 mock_utils.validate_list = mcp_utils_real.validate_list
 mock_utils.validate_string = mcp_utils_real.validate_string
+mock_utils.mcp_get = mcp_utils_real.mcp_get
+mock_utils.mcp_post = mcp_utils_real.mcp_post
+mock_utils.mcp_delete = mcp_utils_real.mcp_delete
+mock_utils.http = mcp_utils_real.http
 sys.modules["utils"] = mock_utils
 
 
@@ -53,7 +58,7 @@ def mock_auth_success(mocker):
             return MockResponse({"authenticated": True})
         return MockResponse({}, 404)
 
-    return mocker.patch("requests.get", side_effect=auth_side_effect)
+    return mocker.patch.object(mcp_utils_real.http, "get", side_effect=auth_side_effect)
 
 
 @pytest.fixture
@@ -65,7 +70,7 @@ def mock_auth_failure(mocker):
             return MockResponse({"authenticated": False})
         return MockResponse({}, 404)
 
-    return mocker.patch("requests.get", side_effect=auth_side_effect)
+    return mocker.patch.object(mcp_utils_real.http, "get", side_effect=auth_side_effect)
 
 
 class TestSearchTidal:
@@ -73,7 +78,6 @@ class TestSearchTidal:
 
     def test_search_not_authenticated(self, mock_auth_failure):
         """Test search when not authenticated."""
-        # Import here to use mocked modules
         from tools.search import search_tidal
 
         result = search_tidal("test query")
@@ -83,8 +87,9 @@ class TestSearchTidal:
 
     def test_search_empty_query(self, mocker):
         """Test search with empty query."""
-        mocker.patch(
-            "requests.get",
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "get",
             return_value=MockResponse({"authenticated": True}),
         )
 
@@ -114,7 +119,7 @@ class TestSearchTidal:
                 return MockResponse(search_results)
             return MockResponse({}, 404)
 
-        mocker.patch("requests.get", side_effect=mock_get)
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
 
         from tools.search import search_tidal
 
@@ -148,7 +153,7 @@ class TestSearchTidal:
                 return MockResponse(search_results)
             return MockResponse({}, 404)
 
-        mocker.patch("requests.get", side_effect=mock_get)
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
 
         from tools.search import search_tidal
 
@@ -179,7 +184,7 @@ class TestSearchTidal:
                 return MockResponse(search_results)
             return MockResponse({}, 404)
 
-        mocker.patch("requests.get", side_effect=mock_get)
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
 
         from tools.search import search_tidal
 
@@ -203,8 +208,9 @@ class TestAddTracksToPlaylist:
 
     def test_add_tracks_no_playlist_id(self, mocker):
         """Test adding tracks without playlist ID."""
-        mocker.patch(
-            "requests.get",
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "get",
             return_value=MockResponse({"authenticated": True}),
         )
 
@@ -217,8 +223,9 @@ class TestAddTracksToPlaylist:
 
     def test_add_tracks_no_track_ids(self, mocker):
         """Test adding tracks without track IDs."""
-        mocker.patch(
-            "requests.get",
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "get",
             return_value=MockResponse({"authenticated": True}),
         )
 
@@ -237,9 +244,10 @@ class TestAddTracksToPlaylist:
                 return MockResponse({"authenticated": True})
             return MockResponse({}, 404)
 
-        mocker.patch("requests.get", side_effect=mock_get)
-        mocker.patch(
-            "requests.post",
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "post",
             return_value=MockResponse(
                 {
                     "status": "success",
@@ -265,9 +273,10 @@ class TestAddTracksToPlaylist:
                 return MockResponse({"authenticated": True})
             return MockResponse({}, 404)
 
-        mocker.patch("requests.get", side_effect=mock_get)
-        mocker.patch(
-            "requests.post",
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "post",
             return_value=MockResponse({"error": "Playlist not found"}, 404),
         )
 
@@ -297,8 +306,8 @@ class TestAddTracksToPlaylist:
                 }
             )
 
-        mocker.patch("requests.get", side_effect=mock_get)
-        mocker.patch("requests.post", side_effect=mock_post)
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
+        mocker.patch.object(mcp_utils_real.http, "post", side_effect=mock_post)
 
         from tools.playlists import add_tracks_to_playlist
 
@@ -328,8 +337,9 @@ class TestRemoveTracksFromPlaylist:
 
     def test_remove_tracks_no_playlist_id(self, mocker):
         """Test removing tracks without playlist ID."""
-        mocker.patch(
-            "requests.get",
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "get",
             return_value=MockResponse({"authenticated": True}),
         )
 
@@ -342,8 +352,9 @@ class TestRemoveTracksFromPlaylist:
 
     def test_remove_tracks_no_track_ids(self, mocker):
         """Test removing tracks without track IDs."""
-        mocker.patch(
-            "requests.get",
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "get",
             return_value=MockResponse({"authenticated": True}),
         )
 
@@ -362,9 +373,10 @@ class TestRemoveTracksFromPlaylist:
                 return MockResponse({"authenticated": True})
             return MockResponse({}, 404)
 
-        mocker.patch("requests.get", side_effect=mock_get)
-        mocker.patch(
-            "requests.delete",
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "delete",
             return_value=MockResponse(
                 {
                     "status": "success",
@@ -390,9 +402,10 @@ class TestRemoveTracksFromPlaylist:
                 return MockResponse({"authenticated": True})
             return MockResponse({}, 404)
 
-        mocker.patch("requests.get", side_effect=mock_get)
-        mocker.patch(
-            "requests.delete",
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "delete",
             return_value=MockResponse({"error": "Playlist not found"}, 404),
         )
 
@@ -411,9 +424,10 @@ class TestRemoveTracksFromPlaylist:
                 return MockResponse({"authenticated": True})
             return MockResponse({}, 404)
 
-        mocker.patch("requests.get", side_effect=mock_get)
-        mocker.patch(
-            "requests.delete",
+        mocker.patch.object(mcp_utils_real.http, "get", side_effect=mock_get)
+        mocker.patch.object(
+            mcp_utils_real.http,
+            "delete",
             return_value=MockResponse({"error": "Cannot modify this playlist"}, 403),
         )
 

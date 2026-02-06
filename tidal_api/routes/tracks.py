@@ -1,6 +1,7 @@
 """Track routes for TIDAL API (favorites, recommendations)."""
 
 import concurrent.futures
+import logging
 
 from flask import Blueprint, jsonify, request
 
@@ -13,6 +14,8 @@ from tidal_api.utils import (
     require_json_body,
     requires_tidal_auth,
 )
+
+logger = logging.getLogger(__name__)
 
 tracks_bp = Blueprint("tracks", __name__)
 
@@ -80,7 +83,7 @@ def get_batch_recommendations(session: BrowserSession):
             recommendations = track.get_track_radio(limit=limit_per_track)
             return [format_track_data(rec, source_track_id=tid) for rec in recommendations]
         except Exception as e:
-            print(f"Error getting recommendations for track {tid}: {e!s}")
+            logger.warning("Error getting recommendations for track %s: %s", tid, e)
             return []
 
     all_recommendations = []

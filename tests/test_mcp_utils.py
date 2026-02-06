@@ -54,7 +54,7 @@ class TestCheckTidalAuth:
         mock_response = MagicMock()
         mock_response.json.return_value = {"authenticated": True}
 
-        with patch.object(mcp_utils.requests, "get", return_value=mock_response):
+        with patch.object(mcp_utils.http, "get", return_value=mock_response):
             result = check_tidal_auth("test action")
 
         assert result is None
@@ -64,7 +64,7 @@ class TestCheckTidalAuth:
         mock_response = MagicMock()
         mock_response.json.return_value = {"authenticated": False}
 
-        with patch.object(mcp_utils.requests, "get", return_value=mock_response):
+        with patch.object(mcp_utils.http, "get", return_value=mock_response):
             result = check_tidal_auth("test action")
 
         assert result is not None
@@ -77,7 +77,7 @@ class TestCheckTidalAuth:
         mock_response = MagicMock()
         mock_response.json.return_value = {"authenticated": False}
 
-        with patch.object(mcp_utils.requests, "get", return_value=mock_response):
+        with patch.object(mcp_utils.http, "get", return_value=mock_response):
             result = check_tidal_auth("create a playlist")
 
         assert "create a playlist" in result["message"]
@@ -87,14 +87,16 @@ class TestCheckTidalAuth:
         mock_response = MagicMock()
         mock_response.json.return_value = {"authenticated": False}
 
-        with patch.object(mcp_utils.requests, "get", return_value=mock_response):
+        with patch.object(mcp_utils.http, "get", return_value=mock_response):
             result = check_tidal_auth()
 
         assert "perform this action" in result["message"]
 
     def test_exception_returns_error(self):
-        """When an exception occurs, should return error dict."""
-        with patch.object(mcp_utils.requests, "get", side_effect=Exception("Network error")):
+        """When a request exception occurs, should return error dict."""
+        import requests
+
+        with patch.object(mcp_utils.http, "get", side_effect=requests.ConnectionError("Network error")):
             result = check_tidal_auth("test action")
 
         assert result is not None
@@ -171,9 +173,11 @@ class TestHandleApiResponse:
 
     def test_generic_error_with_json_parse_failure(self):
         """When JSON parsing fails, should return unknown error."""
+        import requests as req
+
         mock_response = MagicMock()
         mock_response.status_code = 500
-        mock_response.json.side_effect = Exception("Invalid JSON")
+        mock_response.json.side_effect = req.JSONDecodeError("Invalid JSON", "", 0)
 
         result = handle_api_response(mock_response, "playlist")
 

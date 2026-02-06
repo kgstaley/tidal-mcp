@@ -1,14 +1,18 @@
 """Track MCP tools (favorites, recommendations)."""
 
+import logging
+
 import requests
 from server import mcp
 from utils import (
-    FLASK_APP_URL,
     check_tidal_auth,
     error_response,
-    handle_api_response,
+    mcp_get,
+    mcp_post,
     validate_list,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @mcp.tool()
@@ -37,18 +41,11 @@ def get_favorite_tracks(limit: int = 50) -> dict:
         if auth_error:
             return auth_error
 
-        response = requests.get(f"{FLASK_APP_URL}/api/tracks", params={"limit": limit})
+        return mcp_get("/api/tracks", "tracks", params={"limit": limit})
 
-        if response.status_code == 200:
-            return response.json()
-
-        api_error = handle_api_response(response, "tracks")
-        if api_error:
-            return api_error
-
-        return response.json()
-    except Exception as e:
-        return error_response(f"Failed to connect to TIDAL tracks service: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL tracks service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL tracks service: {e}")
 
 
 def _get_tidal_recommendations(track_ids: list = None, limit_per_track: int = 20, filter_criteria: str = None) -> dict:
@@ -70,13 +67,12 @@ def _get_tidal_recommendations(track_ids: list = None, limit_per_track: int = 20
 
         payload = {"track_ids": track_ids, "limit_per_track": limit_per_track, "remove_duplicates": True}
 
-        response = requests.post(f"{FLASK_APP_URL}/api/recommendations/batch", json=payload)
+        data = mcp_post("/api/recommendations/batch", "recommendations", payload=payload)
 
-        api_error = handle_api_response(response, "recommendations")
-        if api_error:
-            return api_error
+        if data.get("status") == "error":
+            return data
 
-        recommendations = response.json().get("recommendations", [])
+        recommendations = data.get("recommendations", [])
 
         result = {"recommendations": recommendations, "total_count": len(recommendations)}
 
@@ -85,8 +81,9 @@ def _get_tidal_recommendations(track_ids: list = None, limit_per_track: int = 20
 
         return result
 
-    except Exception as e:
-        return error_response(f"Failed to get recommendations: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to get recommendations", exc_info=True)
+        return error_response(f"Failed to get recommendations: {e}")
 
 
 @mcp.tool()

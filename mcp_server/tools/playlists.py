@@ -1,15 +1,20 @@
 """Playlist MCP tools."""
 
+import logging
+
 import requests
 from server import mcp
 from utils import (
-    FLASK_APP_URL,
     check_tidal_auth,
     error_response,
-    handle_api_response,
+    mcp_delete,
+    mcp_get,
+    mcp_post,
     validate_list,
     validate_string,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @mcp.tool()
@@ -67,13 +72,11 @@ def create_tidal_playlist(title: str, track_ids: list, description: str = "") ->
 
         payload = {"title": title, "description": description, "track_ids": track_ids}
 
-        response = requests.post(f"{FLASK_APP_URL}/api/playlists", json=payload)
+        result = mcp_post("/api/playlists", "playlist", payload=payload)
 
-        api_error = handle_api_response(response, "playlist")
-        if api_error:
-            return api_error
+        if result.get("status") == "error":
+            return result
 
-        result = response.json()
         playlist_data = result.get("playlist", {})
 
         playlist_id = playlist_data.get("id")
@@ -86,8 +89,9 @@ def create_tidal_playlist(title: str, track_ids: list, description: str = "") ->
             "playlist": playlist_data,
         }
 
-    except Exception as e:
-        return error_response(f"Failed to create playlist: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to create playlist", exc_info=True)
+        return error_response(f"Failed to create playlist: {e}")
 
 
 @mcp.tool()
@@ -119,19 +123,17 @@ def get_user_playlists() -> dict:
         return auth_error
 
     try:
-        response = requests.get(f"{FLASK_APP_URL}/api/playlists")
+        data = mcp_get("/api/playlists", "playlists")
 
-        if response.status_code == 200:
-            playlists = response.json().get("playlists", [])
-            return {"status": "success", "playlists": playlists, "playlist_count": len(playlists)}
+        if data.get("status") == "error":
+            return data
 
-        api_error = handle_api_response(response, "playlists")
-        if api_error:
-            return api_error
+        playlists = data.get("playlists", [])
+        return {"status": "success", "playlists": playlists, "playlist_count": len(playlists)}
 
-        return response.json()
-    except Exception as e:
-        return error_response(f"Failed to connect to TIDAL playlists service: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlists service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlists service: {e}")
 
 
 @mcp.tool()
@@ -176,19 +178,18 @@ def get_playlist_tracks(playlist_id: str, limit: int = 50) -> dict:
         )
 
     try:
-        response = requests.get(f"{FLASK_APP_URL}/api/playlists/{playlist_id}/tracks", params={"limit": limit})
+        data = mcp_get(
+            f"/api/playlists/{playlist_id}/tracks", "playlist", params={"limit": limit}, resource_id=playlist_id
+        )
 
-        if response.status_code == 200:
-            data = response.json()
-            return {"status": "success", "tracks": data.get("tracks", []), "track_count": data.get("total_tracks", 0)}
+        if data.get("status") == "error":
+            return data
 
-        api_error = handle_api_response(response, "playlist", playlist_id)
-        if api_error:
-            return api_error
+        return {"status": "success", "tracks": data.get("tracks", []), "track_count": data.get("total_tracks", 0)}
 
-        return response.json()
-    except Exception as e:
-        return error_response(f"Failed to connect to TIDAL playlist service: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")
 
 
 @mcp.tool()
@@ -227,18 +228,11 @@ def delete_tidal_playlist(playlist_id: str) -> dict:
         )
 
     try:
-        response = requests.delete(f"{FLASK_APP_URL}/api/playlists/{playlist_id}")
+        return mcp_delete(f"/api/playlists/{playlist_id}", "playlist", resource_id=playlist_id)
 
-        if response.status_code == 200:
-            return response.json()
-
-        api_error = handle_api_response(response, "playlist", playlist_id)
-        if api_error:
-            return api_error
-
-        return response.json()
-    except Exception as e:
-        return error_response(f"Failed to connect to TIDAL playlist service: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")
 
 
 @mcp.tool()
@@ -292,25 +286,22 @@ def add_tracks_to_playlist(
     try:
         payload = {"track_ids": track_ids, "allow_duplicates": allow_duplicates, "position": position}
 
-        response = requests.post(f"{FLASK_APP_URL}/api/playlists/{playlist_id}/tracks", json=payload)
+        data = mcp_post(f"/api/playlists/{playlist_id}/tracks", "playlist", payload=payload, resource_id=playlist_id)
 
-        if response.status_code == 200:
-            data = response.json()
-            return {
-                "status": "success",
-                "message": data.get("message", f"Added {len(track_ids)} tracks to playlist"),
-                "playlist_id": playlist_id,
-                "added_count": data.get("added_count", len(track_ids)),
-                "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
-            }
+        if data.get("status") == "error":
+            return data
 
-        api_error = handle_api_response(response, "playlist", playlist_id)
-        if api_error:
-            return api_error
+        return {
+            "status": "success",
+            "message": data.get("message", f"Added {len(track_ids)} tracks to playlist"),
+            "playlist_id": playlist_id,
+            "added_count": data.get("added_count", len(track_ids)),
+            "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
+        }
 
-        return response.json()
-    except Exception as e:
-        return error_response(f"Failed to connect to TIDAL playlist service: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")
 
 
 @mcp.tool()
@@ -362,22 +353,19 @@ def remove_tracks_from_playlist(playlist_id: str, track_ids: list[str]) -> dict:
     try:
         payload = {"track_ids": track_ids}
 
-        response = requests.delete(f"{FLASK_APP_URL}/api/playlists/{playlist_id}/tracks", json=payload)
+        data = mcp_delete(f"/api/playlists/{playlist_id}/tracks", "playlist", payload=payload, resource_id=playlist_id)
 
-        if response.status_code == 200:
-            data = response.json()
-            return {
-                "status": "success",
-                "message": data.get("message", "Removed tracks from playlist"),
-                "playlist_id": playlist_id,
-                "removed_count": data.get("removed_count", 0),
-                "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
-            }
+        if data.get("status") == "error":
+            return data
 
-        api_error = handle_api_response(response, "playlist", playlist_id)
-        if api_error:
-            return api_error
+        return {
+            "status": "success",
+            "message": data.get("message", "Removed tracks from playlist"),
+            "playlist_id": playlist_id,
+            "removed_count": data.get("removed_count", 0),
+            "playlist_url": f"https://tidal.com/playlist/{playlist_id}",
+        }
 
-        return response.json()
-    except Exception as e:
-        return error_response(f"Failed to connect to TIDAL playlist service: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL playlist service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL playlist service: {e}")

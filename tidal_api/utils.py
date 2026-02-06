@@ -1,9 +1,16 @@
 import functools
+import logging
 import os
 import tempfile
 from pathlib import Path
 
 from flask import jsonify, request
+
+logger = logging.getLogger(__name__)
+
+# --- Constants ---
+MAX_LIMIT = 5000
+DEFAULT_PAGE_SIZE = 50
 
 # Session file path
 token_path = os.path.join(tempfile.gettempdir(), "tidal-session-oauth.json")
@@ -77,7 +84,7 @@ def safe_attr(obj, attr: str, default=None):
     Returns:
         Attribute value or default
     """
-    return getattr(obj, attr, default) if hasattr(obj, attr) else default
+    return getattr(obj, attr, default)
 
 
 def tidal_track_url(track_id) -> str:

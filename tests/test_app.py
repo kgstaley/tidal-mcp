@@ -386,6 +386,8 @@ class TestRemoveTracksFromPlaylist:
 
         # Should have removed 2 out of 3
         assert data["removed_count"] == 2
+        assert "failed_track_ids" in data
+        assert len(data["failed_track_ids"]) == 1
 
     def test_remove_tracks_not_user_playlist(self, client, mock_session_file, mocker):
         """Test removing tracks from a playlist without remove capability."""
@@ -406,3 +408,14 @@ class TestRemoveTracksFromPlaylist:
             content_type="application/json",
         )
         assert response.status_code == 403
+
+
+class TestHealthCheck:
+    """Tests for /health endpoint."""
+
+    def test_health_check(self, client):
+        """Health endpoint returns ok status."""
+        response = client.get("/health")
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["status"] == "ok"

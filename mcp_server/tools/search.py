@@ -1,14 +1,17 @@
 """Search MCP tools."""
 
+import logging
+
 import requests
 from server import mcp
 from utils import (
-    FLASK_APP_URL,
     check_tidal_auth,
     error_response,
-    handle_api_response,
+    mcp_get,
     validate_string,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @mcp.tool()
@@ -56,25 +59,22 @@ def search_tidal(query: str, types: list[str] | None = None, limit: int = 20) ->
         if types:
             params["types"] = ",".join(types)
 
-        response = requests.get(f"{FLASK_APP_URL}/api/search", params=params)
+        data = mcp_get("/api/search", "search", params=params)
 
-        if response.status_code == 200:
-            data = response.json()
-            return {
-                "status": "success",
-                "query": query,
-                "top_hit": data.get("top_hit"),
-                "artists": data.get("artists", []),
-                "tracks": data.get("tracks", []),
-                "albums": data.get("albums", []),
-                "playlists": data.get("playlists", []),
-                "videos": data.get("videos", []),
-            }
+        if data.get("status") == "error":
+            return data
 
-        api_error = handle_api_response(response, "search")
-        if api_error:
-            return api_error
+        return {
+            "status": "success",
+            "query": query,
+            "top_hit": data.get("top_hit"),
+            "artists": data.get("artists", []),
+            "tracks": data.get("tracks", []),
+            "albums": data.get("albums", []),
+            "playlists": data.get("playlists", []),
+            "videos": data.get("videos", []),
+        }
 
-        return response.json()
-    except Exception as e:
-        return error_response(f"Failed to connect to TIDAL search service: {str(e)}")
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL search service", exc_info=True)
+        return error_response(f"Failed to connect to TIDAL search service: {e}")

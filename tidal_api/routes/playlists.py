@@ -1,5 +1,7 @@
 """Playlist routes for TIDAL API."""
 
+import logging
+
 from flask import Blueprint, jsonify, request
 
 from tidal_api.browser_session import BrowserSession
@@ -14,6 +16,8 @@ from tidal_api.utils import (
     require_json_body,
     requires_tidal_auth,
 )
+
+logger = logging.getLogger(__name__)
 
 playlists_bp = Blueprint("playlists", __name__)
 
@@ -187,18 +191,23 @@ def remove_tracks_from_playlist(playlist_id: str, session: BrowserSession):
         return error
 
     removed_count = 0
+    failed_track_ids = []
     for track_id in track_ids:
         try:
             playlist.remove_by_id(track_id)
             removed_count += 1
         except Exception:
-            pass
+            logger.warning("Failed to remove track %s from playlist %s", track_id, playlist_id, exc_info=True)
+            failed_track_ids.append(track_id)
 
-    return jsonify(
-        {
-            "status": "success",
-            "message": f"Removed {removed_count} tracks from playlist",
-            "playlist_id": playlist_id,
-            "removed_count": removed_count,
-        }
-    )
+    result = {
+        "status": "success",
+        "message": f"Removed {removed_count} tracks from playlist",
+        "playlist_id": playlist_id,
+        "removed_count": removed_count,
+    }
+
+    if failed_track_ids:
+        result["failed_track_ids"] = failed_track_ids
+
+    return jsonify(result)

@@ -1,8 +1,12 @@
 """Authentication MCP tools."""
 
+import logging
+
 import requests
 from server import mcp
-from utils import FLASK_APP_URL
+from utils import DEFAULT_TIMEOUT, FLASK_APP_URL, http
+
+logger = logging.getLogger(__name__)
 
 
 @mcp.tool()
@@ -15,7 +19,7 @@ def tidal_login() -> dict:
         A dictionary containing authentication status and user information if successful
     """
     try:
-        response = requests.get(f"{FLASK_APP_URL}/api/auth/login")
+        response = http.get(f"{FLASK_APP_URL}/api/auth/login", timeout=DEFAULT_TIMEOUT)
 
         if response.status_code == 200:
             return response.json()
@@ -25,5 +29,6 @@ def tidal_login() -> dict:
                 "status": "error",
                 "message": f"Authentication failed: {error_data.get('message', 'Unknown error')}",
             }
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to connect to TIDAL authentication service: {str(e)}"}
+    except requests.RequestException as e:
+        logger.error("Failed to connect to TIDAL authentication service", exc_info=True)
+        return {"status": "error", "message": f"Failed to connect to TIDAL authentication service: {e}"}
