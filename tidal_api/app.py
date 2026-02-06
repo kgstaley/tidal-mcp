@@ -5,7 +5,7 @@ import os
 
 from flask import Flask, jsonify
 
-from tidal_api.routes import albums_bp, artists_bp, auth_bp, playlists_bp, search_bp, tracks_bp
+from tidal_api.routes import albums_bp, artists_bp, auth_bp, mixes_bp, playlists_bp, search_bp, tracks_bp
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ def create_app() -> Flask:
     app.register_blueprint(tracks_bp)
     app.register_blueprint(playlists_bp)
     app.register_blueprint(search_bp)
+    app.register_blueprint(mixes_bp)
 
     @app.route("/health", methods=["GET"])
     def health_check():

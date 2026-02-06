@@ -146,6 +146,32 @@ class MockVideo:
         self.duration = 300
 
 
+class MockMix:
+    """Mock TIDAL mix object."""
+
+    def __init__(
+        self,
+        id="mix-123",
+        title="My Daily Mix",
+        sub_title="Daily Mix",
+        short_subtitle="Your personalized playlist",
+        mix_type="DAILY_MIX",
+        updated="2024-01-15T12:00:00",
+    ):
+        self.id = id
+        self.title = title
+        self.sub_title = sub_title
+        self.short_subtitle = short_subtitle
+        self.mix_type = mix_type
+        self.updated = updated
+
+    def image(self, dimensions=640):
+        return f"https://tidal.com/image/{self.id}/{dimensions}x{dimensions}"
+
+    def items(self):
+        return []
+
+
 class MockResponse:
     """Mock requests.Response object for MCP tool tests."""
 

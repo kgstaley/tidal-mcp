@@ -1,10 +1,10 @@
 # Session State — Feature Expansion Plan
 
-Last updated: 2026-02-05
+Last updated: 2026-02-06
 
 ## Current Branch
 
-`feature/album-track-details` — Phase 2 implementation
+`feature/mixes-radio` — Phase 3 implementation
 
 ## Plan File
 
@@ -16,11 +16,41 @@ Full plan: `.claude/plans/clever-twirling-newell.md` (also at `.claude/plans/in-
 |-------|--------|--------|---|
 | 0 — Modularize routes/tools | `refactor/modularize-routes-tools` | **Merged** | #4 |
 | 1 — Artist deep-dive | `feature/artist-deep-dive` | **Merged** | #5 |
-| 2 — Album & track details | `feature/album-track-details` | **PR open (draft)** | #8 |
-| 3 — Mixes & radio | — | Not started | — |
+| 2 — Album & track details | `feature/album-track-details` | **Merged** | #8 |
+| 3 — Mixes & radio | `feature/mixes-radio` | **Ready for PR** | — |
 | 4 — Full favorites CRUD | — | Not started | — |
 | 5 — Playlist enhancements | — | Not started | — |
 | 6 — Discovery & browsing | — | Not started | — |
+
+## Phase 3 Summary (Mixes & Radio)
+
+1 commit on `feature/mixes-radio`:
+
+1. Add mixes endpoints and MCP tools (Phase 3)
+
+### What was added
+
+**Flask endpoints** (`tidal_api/routes/mixes.py`):
+- `GET /api/mixes` — user's mixes (iterates Page.categories to collect Mix items)
+- `GET /api/mixes/<id>/tracks` — tracks in a mix (filters out videos)
+
+**MCP tools** (`mcp_server/tools/mixes.py`):
+- `get_user_mixes`, `get_mix_tracks`
+
+**Helpers/formatters** (`tidal_api/utils.py`):
+- `format_mix_data()` — id, title, sub_title, short_subtitle, mix_type, image_url, updated
+
+**Mocks** (`tests/conftest.py`):
+- New `MockMix` class
+
+**Tests**: 191 total (13 new mix tests: 7 Flask + 6 MCP)
+
+### Key tidalapi v0.8.3 learnings (Phase 3)
+
+- `session.mixes()` → `Page` object with `.categories` (list of categories, each with `.items`)
+- `mix.items()` → `List[Track | Video]` — no args, returns mix contents
+- `mix.image(dimensions)` — valid dims: 320, 640, 1500
+- Mix attrs: `id`, `title`, `sub_title`, `short_subtitle`, `mix_type` (enum), `images`, `content_behaviour`, `updated`
 
 ## Phase 2 Summary (Album & Track Details)
 
@@ -91,12 +121,13 @@ Verified against installed source at `.venv/lib/python3.10/site-packages/tidalap
 
 ## Next Steps
 
-1. Open draft PR for Phase 2
-2. Start Phase 3: Mixes & Radio
-3. Phases 4-6: Favorites CRUD, Playlist enhancements, Discovery & browsing
+1. Open draft PR for Phase 3
+2. Start Phase 4: Full favorites CRUD
+3. Phases 5-6: Playlist enhancements, Discovery & browsing
 
 ## Test Count by Phase
 
 - Phase 0 (modularization): 111 tests
 - Phase 1 (artists): +31 = 142 tests
 - Phase 2 (albums/tracks): +36 = 178 tests
+- Phase 3 (mixes): +13 = 191 tests

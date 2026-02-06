@@ -28,6 +28,7 @@ atexit.register(shutdown_flask_app)
 import tools.albums  # noqa: E402, F401
 import tools.artists  # noqa: E402, F401
 import tools.auth  # noqa: E402, F401
+import tools.mixes  # noqa: E402, F401
 import tools.playlists  # noqa: E402, F401
 import tools.search  # noqa: E402, F401
 import tools.tracks  # noqa: E402, F401
