@@ -87,12 +87,12 @@ class TestFormatArtistData:
         assert "tidal.com/browse/artist/100" in result["url"]
         assert result["picture_url"] is not None
 
-    def test_artist_picture_url(self):
+    def test_artist_image_url(self):
         artist = MockArtist(id=200)
         result = format_artist_data(artist)
 
         assert "200" in result["picture_url"]
-        assert "640" in result["picture_url"]
+        assert "320x320" in result["picture_url"]
 
 
 class TestFormatAlbumData:

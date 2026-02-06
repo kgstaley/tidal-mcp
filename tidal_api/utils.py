@@ -202,7 +202,7 @@ def fetch_all_paginated(fetch_fn, limit: int, page_size: int = 50) -> list:
     return all_items[:limit]
 
 
-def format_artist_data(artist):
+def format_artist_data(artist) -> dict:
     """
     Format an artist object into a standardized dictionary.
 
@@ -213,10 +213,36 @@ def format_artist_data(artist):
         Dictionary with standardized artist information
     """
     picture_url = None
-    if hasattr(artist, "picture") and callable(artist.picture):
-        picture_url = artist.picture(640)
+    if hasattr(artist, "image") and callable(artist.image):
+        try:
+            picture_url = artist.image(320)
+        except ValueError:
+            pass
 
     return {"id": artist.id, "name": artist.name, "picture_url": picture_url, "url": tidal_artist_url(artist.id)}
+
+
+def format_artist_detail_data(artist, bio: str = None) -> dict:
+    """
+    Format an artist object with extended details (bio, roles).
+
+    Extends format_artist_data with additional metadata.
+
+    Args:
+        artist: TIDAL artist object
+        bio: Optional pre-fetched biography text
+
+    Returns:
+        Dictionary with detailed artist information
+    """
+    raw_roles = safe_attr(artist, "roles") or []
+    roles = [r.value if hasattr(r, "value") else str(r) for r in raw_roles]
+
+    return {
+        **format_artist_data(artist),
+        "bio": bio,
+        "roles": roles,
+    }
 
 
 def format_album_data(album):
@@ -298,6 +324,28 @@ def format_video_data(video):
         "duration": safe_attr(video, "duration"),
         "url": tidal_video_url(video.id),
     }
+
+
+def get_entity_or_404(session, entity_type: str, entity_id: str):
+    """
+    Get a TIDAL entity or return None with a 404 error response.
+
+    Args:
+        session: Authenticated TIDAL session
+        entity_type: Entity type name matching session method (e.g., "artist", "album", "track", "playlist")
+        entity_id: The entity ID to fetch
+
+    Returns:
+        Tuple of (entity, None) if found, or (None, error_response) if not found
+    """
+    fetcher = getattr(session, entity_type, None)
+    if not fetcher:
+        return None, (jsonify({"error": f"Unknown entity type: {entity_type}"}), 400)
+
+    entity = fetcher(entity_id)
+    if not entity:
+        return None, (jsonify({"error": f"{entity_type.capitalize()} with ID {entity_id} not found"}), 404)
+    return entity, None
 
 
 def get_playlist_or_404(session, playlist_id: str):

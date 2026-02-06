@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Artist deep-dive** — 5 new Flask endpoints and 5 new MCP tools:
+  - `get_artist_info` — artist details with bio and roles
+  - `get_artist_top_tracks` — most popular tracks
+  - `get_artist_albums` — albums with filter (albums/ep_singles/other)
+  - `get_similar_artists` — discover related artists
+  - `get_artist_radio` — radio mix based on artist
+- `get_entity_or_404()` generic entity lookup helper
+- `format_artist_detail_data()` extended artist formatter with bio and roles
+- Artist tool documentation (`docs/tools/artists.md`)
+
+### Fixed
+- `format_artist_data` now uses `artist.image(320)` instead of `artist.picture(640)` (picture is a string UUID attribute, not a callable method; 640 is not a valid image dimension)
+- Role enum serialization — `artist.roles` values are now serialized to strings for JSON responses
+
+### Added (Phase 0)
 - Ruff linter/formatter configuration in `pyproject.toml`
 - GitHub Actions CI workflow (lint, format check, tests on Python 3.10-3.12)
 - CHANGELOG.md for tracking changes
