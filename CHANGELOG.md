@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+
+#### Phase 5: Playlist Editing (PR #11)
+- **Playlist editing tools** — 5 new MCP tools for comprehensive playlist management:
+  - `edit_tidal_playlist` — edit playlist title and/or description
+  - `set_tidal_playlist_visibility` — make playlists public or private
+  - `clear_tidal_playlist` — remove all tracks from a playlist
+  - `reorder_tidal_playlist_tracks` — move tracks to different positions
+  - `merge_tidal_playlists` — copy tracks from one playlist to another
+- 6 new Flask endpoints for playlist operations: PATCH `/api/playlists/<id>`, POST `/api/playlists/<id>/visibility/{public|private}`, DELETE `/api/playlists/<id>/tracks/all`, POST `/api/playlists/<id>/tracks/reorder`, POST `/api/playlists/<id>/merge`
+- `mcp_patch()` HTTP helper for PATCH requests
+- Extended `check_user_playlist()` to validate edit, move, clear, merge, and visibility operations
+- Extended `MockUserPlaylist` with 8 new methods and `public` attribute
+
+#### Phase 3: Mixes & Radio (PR #9)
+- **Mixes tools** — 2 new MCP tools for personalized TIDAL mixes:
+  - `get_user_mixes` — retrieve all user's personalized mixes
+  - `get_mix_tracks` — get tracks from a specific mix
+- 2 new Flask endpoints: GET `/api/mixes`, GET `/api/mixes/<id>/tracks`
+- `format_mix_data()` formatter for mix objects
+- `MockMix` test class
+- Mixes tool documentation (`docs/tools/mixes.md`)
+
+#### Phase 2: Album & Track Details (PR #8)
+- **Album & track detail tools** — 6 new MCP tools:
+  - `get_album_info` — comprehensive album details with audio quality, popularity, review
+  - `get_album_tracks` — paginated album track listing
+  - `get_similar_albums` — discover similar albums
+  - `get_album_review` — editorial album reviews
+  - `get_track_info` — detailed track metadata with ISRC, audio quality
+  - `get_track_lyrics` — track lyrics when available
+- 6 new Flask endpoints for albums and tracks
+- `format_album_detail_data()`, `format_track_detail_data()`, `format_lyrics_data()` formatters
+- Extended `MockAlbum` with `tracks()`, `similar()`, `review()` methods
+- Extended `MockTrack` with `lyrics()` method
+- `MockLyrics` test class
+- Album and track tool documentation (`docs/tools/albums.md`, `docs/tools/tracks.md`)
+
+#### Phase 1: Artist Deep-Dive (PR #5)
 - **Artist deep-dive** — 5 new Flask endpoints and 5 new MCP tools:
   - `get_artist_info` — artist details with bio and roles
   - `get_artist_top_tracks` — most popular tracks
@@ -14,6 +52,11 @@ All notable changes to this project will be documented in this file.
 - `get_entity_or_404()` generic entity lookup helper
 - `format_artist_detail_data()` extended artist formatter with bio and roles
 - Artist tool documentation (`docs/tools/artists.md`)
+
+#### Documentation & Patterns (PR #10)
+- Comprehensive implementation patterns documentation (`docs/patterns.md`) with 863 lines of real code examples
+- Pattern coverage: formatters, Flask endpoints, MCP tools, testing, error handling, tidalapi gotchas
+- Updated `CLAUDE.md` to reference patterns.md for implementation guidance
 
 ### Fixed
 - `format_artist_data` now uses `artist.image(320)` instead of `artist.picture(640)` (picture is a string UUID attribute, not a callable method; 640 is not a valid image dimension)
