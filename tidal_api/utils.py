@@ -1,6 +1,44 @@
 import functools
+import os
+import tempfile
+from pathlib import Path
 
 from flask import jsonify, request
+
+# Session file path
+token_path = os.path.join(tempfile.gettempdir(), "tidal-session-oauth.json")
+SESSION_FILE = Path(token_path)
+
+
+def _create_tidal_session():
+    """Create a new BrowserSession instance. Lazy import to avoid circular deps."""
+    from tidal_api.browser_session import BrowserSession
+
+    return BrowserSession()
+
+
+def requires_tidal_auth(f):
+    """
+    Decorator to ensure routes have an authenticated TIDAL session.
+    Returns 401 if not authenticated.
+    Passes the authenticated session to the decorated function.
+    """
+
+    @functools.wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not SESSION_FILE.exists():
+            return jsonify({"error": "Not authenticated"}), 401
+
+        session = _create_tidal_session()
+        login_success = session.login_session_file_auto(SESSION_FILE)
+
+        if not login_success:
+            return jsonify({"error": "Authentication failed"}), 401
+
+        kwargs["session"] = session
+        return f(*args, **kwargs)
+
+    return decorated_function
 
 
 def handle_endpoint_errors(operation: str):

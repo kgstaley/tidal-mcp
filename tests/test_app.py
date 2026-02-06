@@ -1,4 +1,4 @@
-"""Unit tests for tidal_api/app.py Flask endpoints."""
+"""Unit tests for tidal_api Flask endpoints."""
 
 import json
 import sys
@@ -7,18 +7,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# Add project paths for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "tidal_api"))
+# Add project root for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Mock browser_session before importing app
-sys.modules["browser_session"] = MagicMock()
+sys.modules["tidal_api.browser_session"] = MagicMock()
 
-from app import app
+from tidal_api.app import create_app
 
 
 @pytest.fixture
 def client():
     """Create test client for Flask app."""
+    app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
@@ -29,7 +30,7 @@ def mock_session_file(tmp_path, mocker):
     """Create a mock session file."""
     session_file = tmp_path / "tidal-session-oauth.json"
     session_file.write_text("{}")
-    mocker.patch("app.SESSION_FILE", session_file)
+    mocker.patch("tidal_api.utils.SESSION_FILE", session_file)
     return session_file
 
 
@@ -113,7 +114,7 @@ class TestSearchEndpoint:
         mock_session = MagicMock()
         mock_session.login_session_file_auto.return_value = True
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.get("/api/search")
         assert response.status_code == 400
@@ -127,7 +128,7 @@ class TestSearchEndpoint:
         mock_session.login_session_file_auto.return_value = True
         mock_session.search.return_value = mock_search_results()
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.get("/api/search?query=test")
         assert response.status_code == 200
@@ -149,7 +150,7 @@ class TestSearchEndpoint:
         mock_results = mock_search_results()
         mock_session.search.return_value = mock_results
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.get("/api/search?query=test&types=artists,tracks")
         assert response.status_code == 200
@@ -166,7 +167,7 @@ class TestSearchEndpoint:
         mock_session.login_session_file_auto.return_value = True
         mock_session.search.return_value = mock_search_results()
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.get("/api/search?query=test&limit=30")
         assert response.status_code == 200
@@ -189,7 +190,7 @@ class TestAddTracksToPlaylist:
         mock_session = MagicMock()
         mock_session.login_session_file_auto.return_value = True
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         # Send an empty JSON object body instead of nothing
         response = client.post(
@@ -205,7 +206,7 @@ class TestAddTracksToPlaylist:
         mock_session = MagicMock()
         mock_session.login_session_file_auto.return_value = True
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.post(
             "/api/playlists/test-id/tracks",
@@ -223,7 +224,7 @@ class TestAddTracksToPlaylist:
         mock_playlist = MockPlaylist()
         mock_session.playlist.return_value = mock_playlist
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.post(
             "/api/playlists/test-id/tracks",
@@ -245,7 +246,7 @@ class TestAddTracksToPlaylist:
         mock_playlist.add = MagicMock(return_value=[0, 1])
         mock_session.playlist.return_value = mock_playlist
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.post(
             "/api/playlists/test-id/tracks",
@@ -271,7 +272,7 @@ class TestAddTracksToPlaylist:
         mock_session.login_session_file_auto.return_value = True
         mock_session.playlist.return_value = None
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.post(
             "/api/playlists/invalid-id/tracks",
@@ -292,7 +293,7 @@ class TestAddTracksToPlaylist:
 
         mock_session.playlist.return_value = NonUserPlaylist()
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.post(
             "/api/playlists/not-user-playlist/tracks",
@@ -310,7 +311,7 @@ class TestRemoveTracksFromPlaylist:
         mock_session = MagicMock()
         mock_session.login_session_file_auto.return_value = True
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         # Send an empty JSON object body instead of nothing
         response = client.delete(
@@ -326,7 +327,7 @@ class TestRemoveTracksFromPlaylist:
         mock_session = MagicMock()
         mock_session.login_session_file_auto.return_value = True
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.delete(
             "/api/playlists/test-id/tracks",
@@ -342,7 +343,7 @@ class TestRemoveTracksFromPlaylist:
         mock_playlist = MockPlaylist()
         mock_session.playlist.return_value = mock_playlist
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.delete(
             "/api/playlists/test-id/tracks",
@@ -373,7 +374,7 @@ class TestRemoveTracksFromPlaylist:
         mock_playlist.remove_by_id = MagicMock(side_effect=remove_side_effect)
         mock_session.playlist.return_value = mock_playlist
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.delete(
             "/api/playlists/test-id/tracks",
@@ -397,7 +398,7 @@ class TestRemoveTracksFromPlaylist:
 
         mock_session.playlist.return_value = NonUserPlaylist()
 
-        mocker.patch("app.BrowserSession", return_value=mock_session)
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
 
         response = client.delete(
             "/api/playlists/not-user-playlist/tracks",
