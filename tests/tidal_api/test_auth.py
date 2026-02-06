@@ -95,7 +95,7 @@ TEST_STATE = "test_state_value"
 def _make_mock_session(login_success: bool = True) -> MagicMock:
     """Create a mock BrowserSession for callback tests."""
     mock = MagicMock()
-    mock.complete_pkce_login.return_value = login_success
+    mock.complete_pkce_login.return_value = (login_success, "" if login_success else "exchange failed")
     return mock
 
 

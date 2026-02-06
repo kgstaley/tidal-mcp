@@ -72,7 +72,7 @@ class BrowserSession(tidalapi.Session):
         url = self.config.api_pkce_auth + "?" + urlencode(params)
         return url, state
 
-    def complete_pkce_login(self, code: str) -> bool:
+    def complete_pkce_login(self, code: str) -> tuple[bool, str]:
         """
         Complete the PKCE login flow using the authorization code from the callback.
 
@@ -83,7 +83,7 @@ class BrowserSession(tidalapi.Session):
             code: The authorization code from TIDAL's redirect
 
         Returns:
-            True if login succeeded, False otherwise
+            Tuple of (success: bool, error_detail: str). error_detail is empty on success.
         """
         scope_default = "r_usr+w_usr+w_sub"
         data = {
@@ -99,16 +99,25 @@ class BrowserSession(tidalapi.Session):
         if self.config.client_secret_pkce:
             data["client_secret"] = self.config.client_secret_pkce
         try:
+            logger.info(
+                "PKCE token exchange: endpoint=%s, client_id=%s, redirect_uri=%s",
+                self.config.api_oauth2_token,
+                self.config.client_id_pkce,
+                self.config.pkce_uri_redirect,
+            )
             response = self.request_session.post(self.config.api_oauth2_token, data)
             if not response.ok:
-                logger.error("PKCE token exchange failed (HTTP %s): %s", response.status_code, response.text)
-                return False
+                detail = f"HTTP {response.status_code}: {response.text}"
+                logger.error("PKCE token exchange failed: %s", detail)
+                return False, detail
             token_json = response.json()
             self.process_auth_token(token_json, is_pkce_token=True)
-            return self.check_login()
+            if self.check_login():
+                return True, ""
+            return False, "Token received but session validation failed"
         except Exception as e:
             logger.error("PKCE login failed: %s", e, exc_info=True)
-            return False
+            return False, str(e)
 
     def login_oauth_simple(self, fn_print: Callable[[str], None] = print) -> None:
         """

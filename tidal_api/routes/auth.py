@@ -171,15 +171,15 @@ def callback():
             return _html_response(
                 _CALLBACK_ERROR_HTML.format(message="Session expired. Please try logging in again."), 500
             )
-        login_success = session.complete_pkce_login(code)
+        login_success, error_detail = session.complete_pkce_login(code)
 
         if login_success:
             session.save_session_to_file(SESSION_FILE)
             logger.info("PKCE login successful, session saved")
             return _html_response(_CALLBACK_SUCCESS_HTML)
         else:
-            logger.error("PKCE token exchange failed")
-            return _html_response(_CALLBACK_ERROR_HTML.format(message="Token exchange failed. Please try again."), 401)
+            logger.error("PKCE token exchange failed: %s", error_detail)
+            return _html_response(_CALLBACK_ERROR_HTML.format(message=f"Token exchange failed: {error_detail}"), 401)
     except Exception as e:
         logger.error("PKCE callback error: %s", e, exc_info=True)
         return _html_response(_CALLBACK_ERROR_HTML.format(message="An unexpected error occurred."), 500)
