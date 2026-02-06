@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+err() { echo "Error: $*" >&2; }
+
+usage() {
+  cat <<USAGE
+Usage: script/lint [--fix]
+
+  (no args)   Check for lint and format issues (exit 1 on violations)
+  --fix       Auto-fix lint issues and reformat files
+USAGE
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ -n "${1:-}" && "${1:-}" != "--fix" ]]; then
+  err "Unknown option: $1"
+  usage >&2
+  exit 1
+fi
+
+if ! command -v uv &>/dev/null; then
+  err "uv is not installed. Run script/bootstrap first."
+  exit 1
+fi
+
+if [[ "${1:-}" == "--fix" ]]; then
+  echo "==> Fixing lint issues..."
+  uv run ruff check --fix .
+  echo "==> Formatting..."
+  uv run ruff format .
+else
+  echo "==> Checking lint..."
+  uv run ruff check .
+  echo "==> Checking format..."
+  uv run ruff format --check .
+fi
+
+echo "==> Lint complete!"
