@@ -1,30 +1,29 @@
+import functools
 import os
 import tempfile
-import functools
-
-from flask import Flask, request, jsonify
 from pathlib import Path
 
 from browser_session import BrowserSession
+from flask import Flask, jsonify, request
 from utils import (
-    format_track_data,
-    format_artist_data,
-    format_album_data,
-    format_playlist_search_data,
-    format_video_data,
-    format_user_playlist_data,
     bound_limit,
-    fetch_all_paginated,
-    handle_endpoint_errors,
-    safe_attr,
-    get_playlist_or_404,
-    require_json_body,
     check_user_playlist,
+    fetch_all_paginated,
+    format_album_data,
+    format_artist_data,
+    format_playlist_search_data,
+    format_track_data,
+    format_user_playlist_data,
+    format_video_data,
+    get_playlist_or_404,
+    handle_endpoint_errors,
+    require_json_body,
 )
 
 app = Flask(__name__)
-token_path = os.path.join(tempfile.gettempdir(), 'tidal-session-oauth.json')
+token_path = os.path.join(tempfile.gettempdir(), "tidal-session-oauth.json")
 SESSION_FILE = Path(token_path)
+
 
 def requires_tidal_auth(f):
     """
@@ -32,6 +31,7 @@ def requires_tidal_auth(f):
     Returns 401 if not authenticated.
     Passes the authenticated session to the decorated function.
     """
+
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
         if not SESSION_FILE.exists():
@@ -45,12 +45,13 @@ def requires_tidal_auth(f):
             return jsonify({"error": "Authentication failed"}), 401
 
         # Add the authenticated session to kwargs
-        kwargs['session'] = session
+        kwargs["session"] = session
         return f(*args, **kwargs)
+
     return decorated_function
 
 
-@app.route('/api/auth/login', methods=['GET'])
+@app.route("/api/auth/login", methods=["GET"])
 def login():
     """
     Initiates the TIDAL authentication process.
@@ -67,39 +68,26 @@ def login():
         login_success = session.login_session_file_auto(SESSION_FILE, fn_print=log_message)
 
         if login_success:
-            return jsonify({
-                "status": "success",
-                "message": "Successfully authenticated with TIDAL",
-                "user_id": session.user.id
-            })
+            return jsonify(
+                {"status": "success", "message": "Successfully authenticated with TIDAL", "user_id": session.user.id}
+            )
         else:
-            return jsonify({
-                "status": "error",
-                "message": "Authentication failed"
-            }), 401
+            return jsonify({"status": "error", "message": "Authentication failed"}), 401
 
     except TimeoutError:
-        return jsonify({
-            "status": "error",
-            "message": "Authentication timed out"
-        }), 408
+        return jsonify({"status": "error", "message": "Authentication timed out"}), 408
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/auth/status', methods=['GET'])
+
+@app.route("/api/auth/status", methods=["GET"])
 def auth_status():
     """
     Check if there's an active authenticated session.
     """
     if not SESSION_FILE.exists():
-        return jsonify({
-            "authenticated": False,
-            "message": "No session file found"
-        })
+        return jsonify({"authenticated": False, "message": "No session file found"})
 
     # Create session and try to load from file
     session = BrowserSession()
@@ -109,22 +97,16 @@ def auth_status():
         # Get basic user info
         user_info = {
             "id": session.user.id,
-            "username": session.user.username if hasattr(session.user, 'username') else "N/A",
-            "email": session.user.email if hasattr(session.user, 'email') else "N/A"
+            "username": session.user.username if hasattr(session.user, "username") else "N/A",
+            "email": session.user.email if hasattr(session.user, "email") else "N/A",
         }
 
-        return jsonify({
-            "authenticated": True,
-            "message": "Valid TIDAL session",
-            "user": user_info
-        })
+        return jsonify({"authenticated": True, "message": "Valid TIDAL session", "user": user_info})
     else:
-        return jsonify({
-            "authenticated": False,
-            "message": "Invalid or expired session"
-        })
+        return jsonify({"authenticated": False, "message": "Invalid or expired session"})
 
-@app.route('/api/tracks', methods=['GET'])
+
+@app.route("/api/tracks", methods=["GET"])
 @requires_tidal_auth
 @handle_endpoint_errors("fetching tracks")
 def get_tracks(session: BrowserSession):
@@ -136,21 +118,18 @@ def get_tracks(session: BrowserSession):
     favorites = session.user.favorites
 
     # Get limit from query parameter, default to 50 if not specified
-    limit = bound_limit(request.args.get('limit', default=50, type=int))
+    limit = bound_limit(request.args.get("limit", default=50, type=int))
 
     # Use pagination to fetch tracks (TIDAL limits to 50 per request)
     tracks = fetch_all_paginated(
-        lambda lim, off: favorites.tracks(
-            limit=lim, offset=off, order="DATE", order_direction="DESC"
-        ),
-        limit=limit
+        lambda lim, off: favorites.tracks(limit=lim, offset=off, order="DATE", order_direction="DESC"), limit=limit
     )
     track_list = [format_track_data(track) for track in tracks]
 
     return jsonify({"tracks": track_list, "total": len(track_list)})
 
 
-@app.route('/api/recommendations/track/<track_id>', methods=['GET'])
+@app.route("/api/recommendations/track/<track_id>", methods=["GET"])
 @requires_tidal_auth
 @handle_endpoint_errors("fetching recommendations")
 def get_track_recommendations(track_id: str, session: BrowserSession):
@@ -158,7 +137,7 @@ def get_track_recommendations(track_id: str, session: BrowserSession):
     Get recommended tracks based on a specific track using TIDAL's track radio feature.
     """
     # Get limit from query parameter, default to 10 if not specified
-    limit = bound_limit(request.args.get('limit', default=10, type=int))
+    limit = bound_limit(request.args.get("limit", default=10, type=int))
 
     # Get recommendations using track radio
     track = session.track(track_id)
@@ -172,7 +151,7 @@ def get_track_recommendations(track_id: str, session: BrowserSession):
     return jsonify({"recommendations": track_list})
 
 
-@app.route('/api/recommendations/batch', methods=['POST'])
+@app.route("/api/recommendations/batch", methods=["POST"])
 @requires_tidal_auth
 @handle_endpoint_errors("fetching batch recommendations")
 def get_batch_recommendations(session: BrowserSession):
@@ -181,16 +160,16 @@ def get_batch_recommendations(session: BrowserSession):
     """
     import concurrent.futures
 
-    data, error = require_json_body(required_fields=['track_ids'])
+    data, error = require_json_body(required_fields=["track_ids"])
     if error:
         return error
 
-    track_ids = data['track_ids']
+    track_ids = data["track_ids"]
     if not isinstance(track_ids, list):
         return jsonify({"error": "track_ids must be a list"}), 400
 
-    limit_per_track = bound_limit(data.get('limit_per_track', 20))
-    remove_duplicates = data.get('remove_duplicates', True)
+    limit_per_track = bound_limit(data.get("limit_per_track", 20))
+    remove_duplicates = data.get("remove_duplicates", True)
 
     def get_single_track_recommendations(tid):
         """Function to get recommendations for a single track"""
@@ -198,10 +177,7 @@ def get_batch_recommendations(session: BrowserSession):
             track = session.track(tid)
             recommendations = track.get_track_radio(limit=limit_per_track)
             # Format track data immediately
-            return [
-                format_track_data(rec, source_track_id=tid)
-                for rec in recommendations
-            ]
+            return [format_track_data(rec, source_track_id=tid) for rec in recommendations]
         except Exception as e:
             print(f"Error getting recommendations for track {tid}: {str(e)}")
             return []
@@ -212,10 +188,7 @@ def get_batch_recommendations(session: BrowserSession):
     # Use ThreadPoolExecutor to process tracks concurrently
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(track_ids)) as executor:
         # Submit all tasks and map them to their track_ids
-        future_to_track_id = {
-            executor.submit(get_single_track_recommendations, tid): tid
-            for tid in track_ids
-        }
+        future_to_track_id = {executor.submit(get_single_track_recommendations, tid): tid for tid in track_ids}
 
         # Process results as they complete
         for future in concurrent.futures.as_completed(future_to_track_id):
@@ -223,7 +196,7 @@ def get_batch_recommendations(session: BrowserSession):
 
             # Add recommendations to the result list
             for track_data in track_recommendations:
-                tid = track_data.get('id')
+                tid = track_data.get("id")
 
                 # Skip if we've already seen this track and want to remove duplicates
                 if remove_duplicates and tid in seen_track_ids:
@@ -235,7 +208,7 @@ def get_batch_recommendations(session: BrowserSession):
     return jsonify({"recommendations": all_recommendations})
 
 
-@app.route('/api/playlists', methods=['POST'])
+@app.route("/api/playlists", methods=["POST"])
 @requires_tidal_auth
 @handle_endpoint_errors("creating playlist")
 def create_playlist(session: BrowserSession):
@@ -251,13 +224,13 @@ def create_playlist(session: BrowserSession):
 
     Returns the created playlist information.
     """
-    data, error = require_json_body(required_fields=['title', 'track_ids'])
+    data, error = require_json_body(required_fields=["title", "track_ids"])
     if error:
         return error
 
-    title = data['title']
-    track_ids = data['track_ids']
-    description = data.get('description', '')
+    title = data["title"]
+    track_ids = data["track_ids"]
+    description = data.get("description", "")
 
     if not isinstance(track_ids, list):
         return jsonify({"error": "'track_ids' must be a list"}), 400
@@ -266,14 +239,16 @@ def create_playlist(session: BrowserSession):
     playlist.add(track_ids)
     playlist_info = format_user_playlist_data(playlist)
 
-    return jsonify({
-        "status": "success",
-        "message": f"Playlist '{title}' created successfully with {len(track_ids)} tracks",
-        "playlist": playlist_info
-    })
+    return jsonify(
+        {
+            "status": "success",
+            "message": f"Playlist '{title}' created successfully with {len(track_ids)} tracks",
+            "playlist": playlist_info,
+        }
+    )
 
 
-@app.route('/api/playlists', methods=['GET'])
+@app.route("/api/playlists", methods=["GET"])
 @requires_tidal_auth
 @handle_endpoint_errors("fetching playlists")
 def get_user_playlists(session: BrowserSession):
@@ -287,16 +262,12 @@ def get_user_playlists(session: BrowserSession):
     playlist_list = [format_user_playlist_data(playlist) for playlist in playlists]
 
     # Sort playlists by last_updated in descending order
-    sorted_playlists = sorted(
-        playlist_list,
-        key=lambda x: x.get('last_updated', ''),
-        reverse=True
-    )
+    sorted_playlists = sorted(playlist_list, key=lambda x: x.get("last_updated", ""), reverse=True)
 
     return jsonify({"playlists": sorted_playlists})
 
 
-@app.route('/api/playlists/<playlist_id>/tracks', methods=['GET'])
+@app.route("/api/playlists/<playlist_id>/tracks", methods=["GET"])
 @requires_tidal_auth
 @handle_endpoint_errors("fetching playlist tracks")
 def get_playlist_tracks(playlist_id: str, session: BrowserSession):
@@ -304,29 +275,22 @@ def get_playlist_tracks(playlist_id: str, session: BrowserSession):
     Get tracks from a specific TIDAL playlist.
     """
     # Get limit from query parameter, default to 1000 if not specified
-    limit = bound_limit(request.args.get('limit', default=1000, type=int))
+    limit = bound_limit(request.args.get("limit", default=1000, type=int))
 
     playlist, error = get_playlist_or_404(session, playlist_id)
     if error:
         return error
 
     # Use pagination to fetch tracks (TIDAL limits to 50 per request)
-    tracks = fetch_all_paginated(
-        lambda lim, off: playlist.items(limit=lim, offset=off),
-        limit=limit
-    )
+    tracks = fetch_all_paginated(lambda lim, off: playlist.items(limit=lim, offset=off), limit=limit)
 
     # Format track data
     track_list = [format_track_data(track) for track in tracks]
 
-    return jsonify({
-        "playlist_id": playlist.id,
-        "tracks": track_list,
-        "total_tracks": len(track_list)
-    })
+    return jsonify({"playlist_id": playlist.id, "tracks": track_list, "total_tracks": len(track_list)})
 
 
-@app.route('/api/playlists/<playlist_id>', methods=['DELETE'])
+@app.route("/api/playlists/<playlist_id>", methods=["DELETE"])
 @requires_tidal_auth
 @handle_endpoint_errors("deleting playlist")
 def delete_playlist(playlist_id: str, session: BrowserSession):
@@ -339,13 +303,10 @@ def delete_playlist(playlist_id: str, session: BrowserSession):
 
     playlist.delete()
 
-    return jsonify({
-        "status": "success",
-        "message": f"Playlist with ID {playlist_id} was successfully deleted"
-    })
+    return jsonify({"status": "success", "message": f"Playlist with ID {playlist_id} was successfully deleted"})
 
 
-@app.route('/api/search', methods=['GET'])
+@app.route("/api/search", methods=["GET"])
 @requires_tidal_auth
 @handle_endpoint_errors("searching")
 def search(session: BrowserSession):
@@ -359,26 +320,26 @@ def search(session: BrowserSession):
     """
     import tidalapi
 
-    query = request.args.get('query')
+    query = request.args.get("query")
     if not query:
         return jsonify({"error": "Missing 'query' parameter"}), 400
 
     # Parse types (comma-separated)
-    types_param = request.args.get('types', '')
-    limit = bound_limit(request.args.get('limit', default=20, type=int))
+    types_param = request.args.get("types", "")
+    limit = bound_limit(request.args.get("limit", default=20, type=int))
 
     # Map type strings to tidalapi models
     type_map = {
-        'artists': tidalapi.Artist,
-        'tracks': tidalapi.Track,
-        'albums': tidalapi.Album,
-        'playlists': tidalapi.Playlist,
-        'videos': tidalapi.Video
+        "artists": tidalapi.Artist,
+        "tracks": tidalapi.Track,
+        "albums": tidalapi.Album,
+        "playlists": tidalapi.Playlist,
+        "videos": tidalapi.Video,
     }
 
     models = None
     if types_param:
-        types_list = [t.strip().lower() for t in types_param.split(',')]
+        types_list = [t.strip().lower() for t in types_param.split(",")]
         models = [type_map[t] for t in types_list if t in type_map]
         if not models:
             models = None  # Fall back to searching all if no valid types
@@ -388,32 +349,32 @@ def search(session: BrowserSession):
     # Format results
     response = {
         "query": query,
-        "artists": [format_artist_data(a) for a in results.get('artists', [])],
-        "tracks": [format_track_data(t) for t in results.get('tracks', [])],
-        "albums": [format_album_data(a) for a in results.get('albums', [])],
-        "playlists": [format_playlist_search_data(p) for p in results.get('playlists', [])],
-        "videos": [format_video_data(v) for v in results.get('videos', [])],
+        "artists": [format_artist_data(a) for a in results.get("artists", [])],
+        "tracks": [format_track_data(t) for t in results.get("tracks", [])],
+        "albums": [format_album_data(a) for a in results.get("albums", [])],
+        "playlists": [format_playlist_search_data(p) for p in results.get("playlists", [])],
+        "videos": [format_video_data(v) for v in results.get("videos", [])],
     }
 
     # Include top hit if available
-    top_hit = results.get('top_hit')
+    top_hit = results.get("top_hit")
     if top_hit:
         top_hit_type = type(top_hit).__name__.lower()
-        if top_hit_type == 'artist':
+        if top_hit_type == "artist":
             response["top_hit"] = {"type": "artist", "data": format_artist_data(top_hit)}
-        elif top_hit_type == 'track':
+        elif top_hit_type == "track":
             response["top_hit"] = {"type": "track", "data": format_track_data(top_hit)}
-        elif top_hit_type == 'album':
+        elif top_hit_type == "album":
             response["top_hit"] = {"type": "album", "data": format_album_data(top_hit)}
-        elif top_hit_type == 'playlist':
+        elif top_hit_type == "playlist":
             response["top_hit"] = {"type": "playlist", "data": format_playlist_search_data(top_hit)}
-        elif top_hit_type == 'video':
+        elif top_hit_type == "video":
             response["top_hit"] = {"type": "video", "data": format_video_data(top_hit)}
 
     return jsonify(response)
 
 
-@app.route('/api/playlists/<playlist_id>/tracks', methods=['POST'])
+@app.route("/api/playlists/<playlist_id>/tracks", methods=["POST"])
 @requires_tidal_auth
 @handle_endpoint_errors("adding tracks to playlist")
 def add_tracks_to_playlist(playlist_id: str, session: BrowserSession):
@@ -427,16 +388,16 @@ def add_tracks_to_playlist(playlist_id: str, session: BrowserSession):
         "position": -1  // optional, -1 = append to end
     }
     """
-    data, error = require_json_body(required_fields=['track_ids'])
+    data, error = require_json_body(required_fields=["track_ids"])
     if error:
         return error
 
-    track_ids = data['track_ids']
+    track_ids = data["track_ids"]
     if not isinstance(track_ids, list):
         return jsonify({"error": "'track_ids' must be a list"}), 400
 
-    allow_duplicates = data.get('allow_duplicates', False)
-    position = data.get('position', -1)
+    allow_duplicates = data.get("allow_duplicates", False)
+    position = data.get("position", -1)
 
     playlist, error = get_playlist_or_404(session, playlist_id)
     if error:
@@ -451,15 +412,17 @@ def add_tracks_to_playlist(playlist_id: str, session: BrowserSession):
     else:
         added_indices = playlist.add(track_ids, allow_duplicates=allow_duplicates, position=position)
 
-    return jsonify({
-        "status": "success",
-        "message": f"Added {len(track_ids)} tracks to playlist",
-        "playlist_id": playlist_id,
-        "added_count": len(added_indices) if added_indices else len(track_ids)
-    })
+    return jsonify(
+        {
+            "status": "success",
+            "message": f"Added {len(track_ids)} tracks to playlist",
+            "playlist_id": playlist_id,
+            "added_count": len(added_indices) if added_indices else len(track_ids),
+        }
+    )
 
 
-@app.route('/api/playlists/<playlist_id>/tracks', methods=['DELETE'])
+@app.route("/api/playlists/<playlist_id>/tracks", methods=["DELETE"])
 @requires_tidal_auth
 @handle_endpoint_errors("removing tracks from playlist")
 def remove_tracks_from_playlist(playlist_id: str, session: BrowserSession):
@@ -471,11 +434,11 @@ def remove_tracks_from_playlist(playlist_id: str, session: BrowserSession):
         "track_ids": [123456789, 987654321, ...]
     }
     """
-    data, error = require_json_body(required_fields=['track_ids'])
+    data, error = require_json_body(required_fields=["track_ids"])
     if error:
         return error
 
-    track_ids = data['track_ids']
+    track_ids = data["track_ids"]
     if not isinstance(track_ids, list):
         return jsonify({"error": "'track_ids' must be a list"}), 400
 
@@ -495,15 +458,17 @@ def remove_tracks_from_playlist(playlist_id: str, session: BrowserSession):
         except Exception:
             pass
 
-    return jsonify({
-        "status": "success",
-        "message": f"Removed {removed_count} tracks from playlist",
-        "playlist_id": playlist_id,
-        "removed_count": removed_count
-    })
+    return jsonify(
+        {
+            "status": "success",
+            "message": f"Removed {removed_count} tracks from playlist",
+            "playlist_id": playlist_id,
+            "removed_count": removed_count,
+        }
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import os
 
     # Get port from environment variable or use default

@@ -1,8 +1,9 @@
 """Unit tests for tidal_api/app.py Flask endpoints."""
+
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -95,12 +96,12 @@ class MockVideo:
 def mock_search_results(include_top_hit=False):
     """Return a dict matching tidalapi.SearchResults TypedDict."""
     return {
-        'artists': [MockArtist()],
-        'tracks': [MockTrack()],
-        'albums': [MockAlbum()],
-        'playlists': [MockPlaylist()],
-        'videos': [MockVideo()],
-        'top_hit': None,
+        "artists": [MockArtist()],
+        "tracks": [MockTrack()],
+        "albums": [MockAlbum()],
+        "playlists": [MockPlaylist()],
+        "videos": [MockVideo()],
+        "top_hit": None,
     }
 
 
@@ -248,11 +249,13 @@ class TestAddTracksToPlaylist:
 
         response = client.post(
             "/api/playlists/test-id/tracks",
-            data=json.dumps({
-                "track_ids": [123, 456],
-                "allow_duplicates": True,
-                "position": 5,
-            }),
+            data=json.dumps(
+                {
+                    "track_ids": [123, 456],
+                    "allow_duplicates": True,
+                    "position": 5,
+                }
+            ),
             content_type="application/json",
         )
         assert response.status_code == 200

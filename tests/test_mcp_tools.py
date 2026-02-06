@@ -1,8 +1,8 @@
 """Unit tests for mcp_server/server.py MCP tools."""
-import json
+
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -11,9 +11,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "mcp_server"))
 
 # Import the real utils module first to get the actual helper functions
 import importlib.util
+
 spec = importlib.util.spec_from_file_location(
-    "mcp_utils_real",
-    Path(__file__).parent.parent / "mcp_server" / "utils.py"
+    "mcp_utils_real", Path(__file__).parent.parent / "mcp_server" / "utils.py"
 )
 mcp_utils_real = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mcp_utils_real)
@@ -47,6 +47,7 @@ class MockResponse:
 @pytest.fixture
 def mock_auth_success(mocker):
     """Mock successful authentication check."""
+
     def auth_side_effect(url, **kwargs):
         if "/api/auth/status" in url:
             return MockResponse({"authenticated": True})
@@ -58,6 +59,7 @@ def mock_auth_success(mocker):
 @pytest.fixture
 def mock_auth_failure(mocker):
     """Mock failed authentication check."""
+
     def auth_side_effect(url, **kwargs):
         if "/api/auth/status" in url:
             return MockResponse({"authenticated": False})
@@ -229,6 +231,7 @@ class TestAddTracksToPlaylist:
 
     def test_add_tracks_success(self, mocker):
         """Test successfully adding tracks."""
+
         def mock_get(url, **kwargs):
             if "/api/auth/status" in url:
                 return MockResponse({"authenticated": True})
@@ -237,11 +240,13 @@ class TestAddTracksToPlaylist:
         mocker.patch("requests.get", side_effect=mock_get)
         mocker.patch(
             "requests.post",
-            return_value=MockResponse({
-                "status": "success",
-                "message": "Added 2 tracks to playlist",
-                "added_count": 2,
-            }),
+            return_value=MockResponse(
+                {
+                    "status": "success",
+                    "message": "Added 2 tracks to playlist",
+                    "added_count": 2,
+                }
+            ),
         )
 
         from server import add_tracks_to_playlist
@@ -254,6 +259,7 @@ class TestAddTracksToPlaylist:
 
     def test_add_tracks_playlist_not_found(self, mocker):
         """Test adding tracks to non-existent playlist."""
+
         def mock_get(url, **kwargs):
             if "/api/auth/status" in url:
                 return MockResponse({"authenticated": True})
@@ -283,11 +289,13 @@ class TestAddTracksToPlaylist:
 
         def mock_post(url, **kwargs):
             captured_payload.update(kwargs.get("json", {}))
-            return MockResponse({
-                "status": "success",
-                "message": "Added tracks",
-                "added_count": 1,
-            })
+            return MockResponse(
+                {
+                    "status": "success",
+                    "message": "Added tracks",
+                    "added_count": 1,
+                }
+            )
 
         mocker.patch("requests.get", side_effect=mock_get)
         mocker.patch("requests.post", side_effect=mock_post)
@@ -348,6 +356,7 @@ class TestRemoveTracksFromPlaylist:
 
     def test_remove_tracks_success(self, mocker):
         """Test successfully removing tracks."""
+
         def mock_get(url, **kwargs):
             if "/api/auth/status" in url:
                 return MockResponse({"authenticated": True})
@@ -356,11 +365,13 @@ class TestRemoveTracksFromPlaylist:
         mocker.patch("requests.get", side_effect=mock_get)
         mocker.patch(
             "requests.delete",
-            return_value=MockResponse({
-                "status": "success",
-                "message": "Removed 2 tracks from playlist",
-                "removed_count": 2,
-            }),
+            return_value=MockResponse(
+                {
+                    "status": "success",
+                    "message": "Removed 2 tracks from playlist",
+                    "removed_count": 2,
+                }
+            ),
         )
 
         from server import remove_tracks_from_playlist
@@ -373,6 +384,7 @@ class TestRemoveTracksFromPlaylist:
 
     def test_remove_tracks_playlist_not_found(self, mocker):
         """Test removing tracks from non-existent playlist."""
+
         def mock_get(url, **kwargs):
             if "/api/auth/status" in url:
                 return MockResponse({"authenticated": True})
@@ -393,6 +405,7 @@ class TestRemoveTracksFromPlaylist:
 
     def test_remove_tracks_forbidden(self, mocker):
         """Test removing tracks from someone else's playlist."""
+
         def mock_get(url, **kwargs):
             if "/api/auth/status" in url:
                 return MockResponse({"authenticated": True})

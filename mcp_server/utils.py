@@ -1,7 +1,7 @@
-import subprocess
 import os
 import pathlib
 import shutil
+import subprocess
 
 import requests
 
@@ -17,6 +17,7 @@ CURRENT_DIR = pathlib.Path(__file__).parent.absolute()
 FLASK_APP_PATH = os.path.join(CURRENT_DIR, "..", "tidal_api", "app.py")
 FLASK_APP_PATH = os.path.normpath(FLASK_APP_PATH)  # Normalize the path
 
+
 # Find the path to uv executable
 def find_uv_executable():
     """Find the uv executable in the path or common locations"""
@@ -24,7 +25,7 @@ def find_uv_executable():
     uv_path = shutil.which("uv")
     if uv_path:
         return uv_path
-    
+
     # Check common installation locations
     common_locations = [
         os.path.expanduser("~/.local/bin/uv"),  # Linux/macOS local install
@@ -32,55 +33,57 @@ def find_uv_executable():
         "/usr/local/bin/uv",  # macOS Homebrew
         "/opt/homebrew/bin/uv",  # macOS Apple Silicon Homebrew
     ]
-    
+
     for location in common_locations:
         # Handle wildcards in paths
         if "*" in location:
             import glob
+
             matches = glob.glob(location)
             for match in matches:
                 if os.path.isfile(match) and os.access(match, os.X_OK):
                     return match
         elif os.path.isfile(location) and os.access(location, os.X_OK):
             return location
-    
+
     # If we can't find it, just return "uv" and let the system try to resolve it
     return "uv"
+
 
 # Global variable to hold the Flask app process
 flask_process = None
 
+
 def start_flask_app():
     """Start the Flask app as a subprocess"""
     global flask_process
-    
+
     print("Starting TIDAL Flask app...")
-    
+
     # Find uv executable
     uv_executable = find_uv_executable()
     print(f"Using uv executable: {uv_executable}")
-    
+
     # Start the Flask app using uv
-    flask_process = subprocess.Popen([
-        uv_executable, "run",
-        "--with", "tidalapi",
-        "--with", "flask",
-        "--with", "requests",
-        "python", FLASK_APP_PATH
-    ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    
+    flask_process = subprocess.Popen(
+        [uv_executable, "run", "--with", "tidalapi", "--with", "flask", "--with", "requests", "python", FLASK_APP_PATH],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
     # Optional: Read a few lines to ensure the app starts properly
     for _ in range(5):  # Read first 5 lines of output
         line = flask_process.stdout.readline()
         if line:
             print(f"Flask app: {line.decode().strip()}")
-    
+
     print("TIDAL Flask app started")
+
 
 def shutdown_flask_app():
     """Shutdown the Flask app subprocess when the MCP server exits"""
     global flask_process
-    
+
     if flask_process:
         print("Shutting down TIDAL Flask app...")
         # Try to terminate gracefully first
@@ -115,8 +118,7 @@ def check_tidal_auth(action: str = "perform this action") -> dict | None:
 
         if not auth_data.get("authenticated", False):
             return error_response(
-                f"You need to login to TIDAL first before you can {action}. "
-                "Please use the tidal_login() function."
+                f"You need to login to TIDAL first before you can {action}. Please use the tidal_login() function."
             )
     except Exception as e:
         return error_response(f"Failed to check authentication status: {str(e)}")
@@ -140,21 +142,16 @@ def handle_api_response(response, resource_name: str, resource_id: str = None) -
         return None
 
     if response.status_code == 401:
-        return error_response(
-            "Not authenticated with TIDAL. Please login first using tidal_login()."
-        )
+        return error_response("Not authenticated with TIDAL. Please login first using tidal_login().")
 
     if response.status_code == 404:
         id_part = f" with ID {resource_id}" if resource_id else ""
         return error_response(
-            f"{resource_name.capitalize()}{id_part} not found. "
-            f"Please check the {resource_name} ID and try again."
+            f"{resource_name.capitalize()}{id_part} not found. Please check the {resource_name} ID and try again."
         )
 
     if response.status_code == 403:
-        return error_response(
-            f"Cannot modify this {resource_name} - you can only modify your own {resource_name}s."
-        )
+        return error_response(f"Cannot modify this {resource_name} - you can only modify your own {resource_name}s.")
 
     # Generic error
     try:
@@ -179,10 +176,7 @@ def validate_list(value, field_name: str, item_type: str = "item") -> dict | Non
         Error dict if validation fails, None if OK
     """
     if not value or not isinstance(value, list) or len(value) == 0:
-        return error_response(
-            f"At least one {item_type} is required. "
-            f"Please provide {field_name}."
-        )
+        return error_response(f"At least one {item_type} is required. Please provide {field_name}.")
     return None
 
 

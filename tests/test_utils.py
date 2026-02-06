@@ -1,9 +1,8 @@
 """Unit tests for tidal_api/utils.py"""
+
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # Add project paths for imports - must be first before any other imports
 tidal_api_path = str(Path(__file__).parent.parent / "tidal_api")
@@ -12,10 +11,8 @@ if tidal_api_path not in sys.path:
 
 # Import directly from the file to avoid module caching issues
 import importlib.util
-spec = importlib.util.spec_from_file_location(
-    "tidal_utils",
-    Path(__file__).parent.parent / "tidal_api" / "utils.py"
-)
+
+spec = importlib.util.spec_from_file_location("tidal_utils", Path(__file__).parent.parent / "tidal_api" / "utils.py")
 tidal_utils = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tidal_utils)
 
@@ -262,7 +259,7 @@ class TestFetchAllPaginated:
         items = list(range(30))
 
         def fetch_fn(limit, offset):
-            return items[offset:offset + limit]
+            return items[offset : offset + limit]
 
         result = fetch_all_paginated(fetch_fn, limit=30, page_size=50)
         assert result == list(range(30))
@@ -273,7 +270,7 @@ class TestFetchAllPaginated:
         items = list(range(120))
 
         def fetch_fn(limit, offset):
-            return items[offset:offset + limit]
+            return items[offset : offset + limit]
 
         result = fetch_all_paginated(fetch_fn, limit=120, page_size=50)
         assert result == list(range(120))
@@ -284,7 +281,7 @@ class TestFetchAllPaginated:
         items = list(range(100))
 
         def fetch_fn(limit, offset):
-            return items[offset:offset + limit]
+            return items[offset : offset + limit]
 
         result = fetch_all_paginated(fetch_fn, limit=25, page_size=50)
         assert result == list(range(25))
@@ -292,6 +289,7 @@ class TestFetchAllPaginated:
 
     def test_empty_result(self):
         """Test fetching when source has no items."""
+
         def fetch_fn(limit, offset):
             return []
 
@@ -304,7 +302,7 @@ class TestFetchAllPaginated:
         items = list(range(75))
 
         def fetch_fn(limit, offset):
-            return items[offset:offset + limit]
+            return items[offset : offset + limit]
 
         result = fetch_all_paginated(fetch_fn, limit=75, page_size=50)
         assert result == list(range(75))
@@ -315,7 +313,7 @@ class TestFetchAllPaginated:
         items = list(range(30))
 
         def fetch_fn(limit, offset):
-            return items[offset:offset + limit]
+            return items[offset : offset + limit]
 
         # Requesting 100 but only 30 available
         result = fetch_all_paginated(fetch_fn, limit=100, page_size=50)
@@ -327,7 +325,7 @@ class TestFetchAllPaginated:
         items = list(range(100))
 
         def fetch_fn(limit, offset):
-            return items[offset:offset + limit]
+            return items[offset : offset + limit]
 
         # Use page_size of 25
         result = fetch_all_paginated(fetch_fn, limit=100, page_size=25)
@@ -340,7 +338,7 @@ class TestFetchAllPaginated:
 
         def fetch_fn(limit, offset):
             # Simulate API returning more than requested
-            return items[offset:offset + limit + 5]
+            return items[offset : offset + limit + 5]
 
         result = fetch_all_paginated(fetch_fn, limit=50, page_size=50)
         assert len(result) == 50
@@ -371,7 +369,7 @@ class TestFetchAllPaginated:
 
         def fetch_fn(limit, offset):
             call_log.append((limit, offset))
-            return items[offset:offset + limit]
+            return items[offset : offset + limit]
 
         result = fetch_all_paginated(fetch_fn, limit=75, page_size=50)
 
@@ -415,6 +413,7 @@ class TestFormatUserPlaylistData:
 
     def test_playlist_with_missing_attributes(self):
         """Test playlist with missing optional attributes."""
+
         class MinimalPlaylist:
             id = "minimal-123"
             name = "Minimal"
@@ -487,6 +486,7 @@ class TestHandleEndpointErrors:
 
     def test_successful_function(self):
         """Decorator should pass through successful returns."""
+
         @handle_endpoint_errors("testing")
         def success_func():
             return {"status": "ok"}
@@ -496,13 +496,14 @@ class TestHandleEndpointErrors:
 
     def test_exception_caught(self):
         """Decorator should catch exceptions and return error response."""
+
         @handle_endpoint_errors("testing")
         def failing_func():
             raise ValueError("Something went wrong")
 
         # jsonify just returns what we pass to it (identity function for testing)
         mock_jsonify = MagicMock(side_effect=lambda x: x)
-        with patch.object(tidal_utils, 'jsonify', mock_jsonify):
+        with patch.object(tidal_utils, "jsonify", mock_jsonify):
             result, status = failing_func()
 
         # The decorator returns (jsonify({...}), 500)
@@ -513,12 +514,13 @@ class TestHandleEndpointErrors:
 
     def test_operation_in_error_message(self):
         """Error message should include the operation description."""
+
         @handle_endpoint_errors("creating playlist")
         def failing_func():
             raise RuntimeError("Network timeout")
 
         mock_jsonify = MagicMock(side_effect=lambda x: x)
-        with patch.object(tidal_utils, 'jsonify', mock_jsonify):
+        with patch.object(tidal_utils, "jsonify", mock_jsonify):
             result, status = failing_func()
 
         assert "creating playlist" in result["error"]
@@ -546,7 +548,7 @@ class TestGetPlaylistOr404:
         mock_session.playlist.return_value = None
 
         mock_jsonify = MagicMock(side_effect=lambda x: x)
-        with patch.object(tidal_utils, 'jsonify', mock_jsonify):
+        with patch.object(tidal_utils, "jsonify", mock_jsonify):
             playlist, error = get_playlist_or_404(mock_session, "nonexistent-id")
 
         assert playlist is None
@@ -564,7 +566,7 @@ class TestRequireJsonBody:
         mock_request = MagicMock()
         mock_request.get_json.return_value = {"key": "value"}
 
-        with patch.object(tidal_utils, 'request', mock_request):
+        with patch.object(tidal_utils, "request", mock_request):
             data, error = require_json_body()
 
         assert data == {"key": "value"}
@@ -575,8 +577,8 @@ class TestRequireJsonBody:
         mock_request = MagicMock()
         mock_request.get_json.return_value = {"title": "Test", "track_ids": [1, 2, 3]}
 
-        with patch.object(tidal_utils, 'request', mock_request):
-            data, error = require_json_body(required_fields=['title', 'track_ids'])
+        with patch.object(tidal_utils, "request", mock_request):
+            data, error = require_json_body(required_fields=["title", "track_ids"])
 
         assert error is None
         assert data["title"] == "Test"
@@ -588,8 +590,8 @@ class TestRequireJsonBody:
         mock_request.get_json.return_value = None
 
         mock_jsonify = MagicMock(side_effect=lambda x: x)
-        with patch.object(tidal_utils, 'request', mock_request):
-            with patch.object(tidal_utils, 'jsonify', mock_jsonify):
+        with patch.object(tidal_utils, "request", mock_request):
+            with patch.object(tidal_utils, "jsonify", mock_jsonify):
                 data, error = require_json_body()
 
         assert data is None
@@ -603,9 +605,9 @@ class TestRequireJsonBody:
         mock_request.get_json.return_value = {"title": "Test"}
 
         mock_jsonify = MagicMock(side_effect=lambda x: x)
-        with patch.object(tidal_utils, 'request', mock_request):
-            with patch.object(tidal_utils, 'jsonify', mock_jsonify):
-                data, error = require_json_body(required_fields=['title', 'track_ids'])
+        with patch.object(tidal_utils, "request", mock_request):
+            with patch.object(tidal_utils, "jsonify", mock_jsonify):
+                data, error = require_json_body(required_fields=["title", "track_ids"])
 
         assert data is None
         assert error is not None
@@ -619,9 +621,9 @@ class TestRequireJsonBody:
         mock_request.get_json.return_value = {"title": "Test", "track_ids": []}
 
         mock_jsonify = MagicMock(side_effect=lambda x: x)
-        with patch.object(tidal_utils, 'request', mock_request):
-            with patch.object(tidal_utils, 'jsonify', mock_jsonify):
-                data, error = require_json_body(required_fields=['title', 'track_ids'])
+        with patch.object(tidal_utils, "request", mock_request):
+            with patch.object(tidal_utils, "jsonify", mock_jsonify):
+                data, error = require_json_body(required_fields=["title", "track_ids"])
 
         assert data is None
         assert error is not None
@@ -643,12 +645,13 @@ class TestCheckUserPlaylist:
 
     def test_playlist_without_add_capability(self):
         """Should return 403 error when playlist lacks add method."""
+
         class NoAddPlaylist:
             id = "test"
             name = "Test"
 
         mock_jsonify = MagicMock(side_effect=lambda x: x)
-        with patch.object(tidal_utils, 'jsonify', mock_jsonify):
+        with patch.object(tidal_utils, "jsonify", mock_jsonify):
             error = check_user_playlist(NoAddPlaylist(), "add")
 
         assert error is not None
@@ -667,12 +670,13 @@ class TestCheckUserPlaylist:
 
     def test_playlist_without_remove_capability(self):
         """Should return 403 error when playlist lacks remove_by_id method."""
+
         class NoRemovePlaylist:
             id = "test"
             name = "Test"
 
         mock_jsonify = MagicMock(side_effect=lambda x: x)
-        with patch.object(tidal_utils, 'jsonify', mock_jsonify):
+        with patch.object(tidal_utils, "jsonify", mock_jsonify):
             error = check_user_playlist(NoRemovePlaylist(), "remove")
 
         assert error is not None

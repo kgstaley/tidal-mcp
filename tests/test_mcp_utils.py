@@ -1,9 +1,8 @@
 """Unit tests for mcp_server/utils.py helper functions."""
+
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # Add project paths for imports
 mcp_server_path = str(Path(__file__).parent.parent / "mcp_server")
@@ -12,10 +11,8 @@ if mcp_server_path not in sys.path:
 
 # Import directly from the file to avoid module caching issues
 import importlib.util
-spec = importlib.util.spec_from_file_location(
-    "mcp_utils",
-    Path(__file__).parent.parent / "mcp_server" / "utils.py"
-)
+
+spec = importlib.util.spec_from_file_location("mcp_utils", Path(__file__).parent.parent / "mcp_server" / "utils.py")
 mcp_utils = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mcp_utils)
 
@@ -57,7 +54,7 @@ class TestCheckTidalAuth:
         mock_response = MagicMock()
         mock_response.json.return_value = {"authenticated": True}
 
-        with patch.object(mcp_utils.requests, 'get', return_value=mock_response):
+        with patch.object(mcp_utils.requests, "get", return_value=mock_response):
             result = check_tidal_auth("test action")
 
         assert result is None
@@ -67,7 +64,7 @@ class TestCheckTidalAuth:
         mock_response = MagicMock()
         mock_response.json.return_value = {"authenticated": False}
 
-        with patch.object(mcp_utils.requests, 'get', return_value=mock_response):
+        with patch.object(mcp_utils.requests, "get", return_value=mock_response):
             result = check_tidal_auth("test action")
 
         assert result is not None
@@ -80,7 +77,7 @@ class TestCheckTidalAuth:
         mock_response = MagicMock()
         mock_response.json.return_value = {"authenticated": False}
 
-        with patch.object(mcp_utils.requests, 'get', return_value=mock_response):
+        with patch.object(mcp_utils.requests, "get", return_value=mock_response):
             result = check_tidal_auth("create a playlist")
 
         assert "create a playlist" in result["message"]
@@ -90,14 +87,14 @@ class TestCheckTidalAuth:
         mock_response = MagicMock()
         mock_response.json.return_value = {"authenticated": False}
 
-        with patch.object(mcp_utils.requests, 'get', return_value=mock_response):
+        with patch.object(mcp_utils.requests, "get", return_value=mock_response):
             result = check_tidal_auth()
 
         assert "perform this action" in result["message"]
 
     def test_exception_returns_error(self):
         """When an exception occurs, should return error dict."""
-        with patch.object(mcp_utils.requests, 'get', side_effect=Exception("Network error")):
+        with patch.object(mcp_utils.requests, "get", side_effect=Exception("Network error")):
             result = check_tidal_auth("test action")
 
         assert result is not None

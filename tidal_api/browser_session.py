@@ -1,45 +1,47 @@
 import webbrowser
-import tidalapi
-from typing import Callable, Optional
+from collections.abc import Callable
 from pathlib import Path
+
+import tidalapi
+
 
 class BrowserSession(tidalapi.Session):
     """
     Extended tidalapi.Session that automatically opens the login URL in a browser
     """
-    
+
     def login_oauth_simple(self, fn_print: Callable[[str], None] = print) -> None:
         """
         Login to TIDAL with a remote link, automatically opening the URL in a browser.
-        
+
         :param fn_print: The function to display additional information
         :raises: TimeoutError: If the login takes too long
         """
         login, future = self.login_oauth()
-        
+
         # Display information about the login
         text = "Opening browser for TIDAL login. The code will expire in {0} seconds"
         fn_print(text.format(login.expires_in))
-        
+
         # Open the URL in the default browser
         auth_url = login.verification_uri_complete
-        if not auth_url.startswith('http'):
-            auth_url = 'https://' + auth_url
+        if not auth_url.startswith("http"):
+            auth_url = "https://" + auth_url
         webbrowser.open(auth_url)
-        
+
         # Wait for the authentication to complete
         future.result()
-    
+
     def login_session_file_auto(
         self,
         session_file: Path,
-        do_pkce: Optional[bool] = False,
+        do_pkce: bool | None = False,
         fn_print: Callable[[str], None] = print,
     ) -> bool:
         """
         Logs in to the TIDAL api using an existing OAuth/PKCE session file,
         automatically opening the browser for authentication if needed.
-        
+
         :param session_file: The session json file
         :param do_pkce: Perform PKCE login. Default: Use OAuth logon
         :param fn_print: A function to display information
