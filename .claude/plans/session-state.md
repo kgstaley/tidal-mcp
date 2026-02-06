@@ -18,30 +18,44 @@ Full plan: `.claude/plans/clever-twirling-newell.md` (also at `.claude/plans/in-
 | 1 — Artist deep-dive | `feature/artist-deep-dive` | **Merged** | #5 |
 | 2 — Album & track details | `feature/album-track-details` | **Merged** | #8 |
 | 3 — Mixes & radio | `feature/mixes-radio` | **Merged** | #9 |
-| 4 — Full favorites CRUD | — | **Skipped** | (see note below) |
+| 4 — Full favorites CRUD | `feature/favorites-crud` | **Implemented** | — |
 | 5 — Playlist editing | `feature/playlist-editing` | **Merged** | #11 |
-| 6 — Discovery & browsing | `feature/discovery-browsing` | **In progress** | — |
+| 6 — Discovery & browsing | `feature/discovery-browsing` | **Merged** | #13 |
 
-## Phase 4 (Skipped) — Full Favorites CRUD
+## Phase 4 Summary (Full Favorites CRUD)
 
-**Status:** Skipped (2026-02-06)
+**Status:** Implemented (2026-02-06)
 
-**Original scope:** Comprehensive favorites management across all content types:
-- GET/POST/DELETE for `/api/favorites/artists`, `/api/favorites/albums`, `/api/favorites/tracks`
-- GET for `/api/favorites/videos`, `/api/favorites/mixes`
-- MCP tools: `get_favorites(type)`, `add_favorite(type, id)`, `remove_favorite(type, id)`
+**Flask endpoints** (`tidal_api/routes/favorites.py`):
+- `GET /api/favorites/<type>` — list favorites by type (artists, albums, tracks, videos, playlists, mixes)
+- `POST /api/favorites/<type>` — add item to favorites (not mixes — read-only)
+- `DELETE /api/favorites/<type>` — remove item from favorites (not mixes — read-only)
 
-**Why skipped:** Project prioritized playlist editing features (Phase 5) for immediate user value. Basic track favorites functionality already exists via `get_favorite_tracks()`. Full favorites CRUD across all content types deferred for future consideration.
+**MCP tools** (`mcp_server/tools/favorites.py`):
+- `get_favorites(type, limit, order, order_direction)` — retrieve favorites by content type
+- `add_favorite(type, id)` — add to favorites
+- `remove_favorite(type, id)` — remove from favorites
 
-**Current favorites support:**
-- Tracks: `GET /api/tracks/favorites` + `get_favorite_tracks()` tool (existing since Phase 0)
-- Albums, artists, videos, mixes: Read-only access possible via search/browse, but no favorites management
+**Design:** Type dispatch tables (`GET_DISPATCH`, `ADD_DISPATCH`, `REMOVE_DISPATCH`) map URL `<type>` to tidalapi methods + formatters, collapsing 16 potential routes into 3 parameterized endpoints.
 
-**Future work:** If favorites management becomes a priority, Phase 4 scope can be revisited. Would require:
-- 8-10 new Flask endpoints
-- 3 unified MCP tools with type parameter
-- ~40-50 tests
-- Extended mock classes for each content type
+**Special cases:**
+- `tracks`: extra `order`/`order_direction` params, lambda wrapper for `fetch_all_paginated`
+- `videos`: no pagination params — fetch all, then slice
+- `mixes`: read-only (no add/remove in tidalapi), returns 400 for POST/DELETE
+
+**Mocks** (`tests/conftest.py`):
+- `MockFavorites` with 16 methods (5 list + 5 add + 5 remove + mixes)
+
+**Tests**: 267 total (+39 new: 24 Flask + 15 MCP)
+
+### Key tidalapi v0.8.3 learnings (Phase 4)
+
+- `favorites.mixes(limit, offset)` returns `List[MixV2]` (flat paginated list), NOT `Page` like `session.mixes()`
+- `favorites.videos()` takes NO params — must fetch all and slice
+- `favorites.tracks(limit, offset, order, order_direction)` — extra sort params need lambda wrapper
+- `favorites.playlists()` returns `Playlist` (not `UserPlaylist`) — use `format_playlist_search_data`
+- All add/remove methods take `str` IDs
+- `fetch_all_paginated` passes `limit=` and `offset=` as **keyword args** — lambda params must match these names
 
 ## Documentation Updates (PR #10)
 
@@ -256,8 +270,9 @@ Branch: `feature/discovery-browsing`
 1. ✅ Phase 3 merged (PR #9)
 2. ✅ Documentation patterns added (PR #10)
 3. ✅ Phase 5 merged (PR #11)
-4. **Phase 6** — Discovery & browsing implementation complete, ready for PR
-5. Consider Phase 4 (favorites CRUD) if user-requested
+4. ✅ Phase 6 merged (PR #13)
+5. ✅ Phase 4 implemented (favorites CRUD)
+6. All 6 phases complete
 
 ## Test Count by Phase
 
@@ -267,3 +282,4 @@ Branch: `feature/discovery-browsing`
 - Phase 3 (mixes): +13 = 191 tests
 - Phase 5 (playlist editing): +0 = 191 tests
 - Phase 6 (discovery): +37 = 228 tests
+- Phase 4 (favorites): +39 = 267 tests
