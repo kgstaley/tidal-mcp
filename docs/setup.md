@@ -14,16 +14,22 @@
    cd tidal-mcp
    ```
 
-2. Create a virtual environment and install dependencies using uv:
+2. Bootstrap the development environment:
+   ```bash
+   script/bootstrap
+   ```
+
+   This checks for `uv` and Python 3.10+, then installs all dependencies. You can re-run it any time to sync deps.
+
+   <details>
+   <summary>Manual setup (if you prefer not to use the script)</summary>
+
    ```bash
    uv venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-3. Install the package with all dependencies:
-   ```bash
    uv pip install --editable .
    ```
+   </details>
 
 ## MCP Client Configuration
 
