@@ -8,7 +8,9 @@ All notable changes to this project will be documented in this file.
 - **PKCE auth flow for personal TIDAL developer credentials** — When `TIDAL_CLIENT_ID` is set, authentication uses the PKCE browser redirect flow instead of the device code flow. The login endpoint opens the browser, TIDAL redirects to a local `/api/auth/callback` endpoint, and tokens are exchanged automatically. The MCP tool polls `/api/auth/status` until auth completes.
 - **`/api/auth/callback` endpoint** — Handles the TIDAL PKCE redirect, exchanges the authorization code for tokens, saves the session, and returns an HTML success page
 - **`TIDAL_REDIRECT_URI` env var** — Optional override for the PKCE redirect URI (default: `http://localhost:{port}/api/auth/callback`)
-- 17 new auth tests (12 Flask + 5 MCP) covering PKCE flow, callback, polling, and error cases
+- **CSRF protection on PKCE callback** — Random `state` parameter validated on redirect to prevent cross-site request forgery
+- **Stale callback guard** — `/api/auth/callback` rejects requests when no login flow is in progress
+- 21 new auth tests (16 Flask + 5 MCP) covering PKCE flow, callback, polling, state validation, and error cases
 
 ### Fixed
 - **MCP server double module loading** — `mcp run` loaded `server.py` under a synthetic module name (`server_module`), causing tool files to re-import it as `server` and create a second `FastMCP` instance with zero tools. Extracted the `FastMCP` instance into `mcp_server/mcp_app.py` so all modules share one instance.

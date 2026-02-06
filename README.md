@@ -42,7 +42,9 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install --editable .
 ```
 
-See [docs/setup.md](docs/setup.md) for MCP client configuration, first-time authentication, and optional custom OAuth credentials (`TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET`).
+See [docs/setup.md](docs/setup.md) for MCP client configuration, first-time authentication, and custom OAuth credentials.
+
+> **Using your own TIDAL developer credentials?** Set `TIDAL_CLIENT_ID` and `TIDAL_CLIENT_SECRET` — authentication will use the PKCE browser redirect flow automatically. See [setup.md](docs/setup.md#custom-oauth-credentials-optional) for details.
 
 ## How It Works
 

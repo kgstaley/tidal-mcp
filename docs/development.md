@@ -21,7 +21,7 @@ tidal-mcp/
 │       └── tracks.py          # get_favorite_tracks, recommend_tracks
 ├── tidal_api/
 │   ├── app.py                 # Flask app factory + blueprint registration
-│   ├── browser_session.py     # Browser-based OAuth session management
+│   ├── browser_session.py     # OAuth/PKCE session management
 │   ├── utils.py               # Formatters, helpers, constants
 │   └── routes/
 │       ├── __init__.py
