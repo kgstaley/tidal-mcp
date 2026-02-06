@@ -44,9 +44,25 @@ class MockAlbum:
         self.release_date = "2024-01-15"
         self.num_tracks = 12
         self.duration = 3600
+        self.version = None
+        self.explicit = False
+        self.copyright = "2024 Test Records"
+        self.audio_quality = "LOSSLESS"
+        self.audio_modes = ["STEREO"]
+        self.popularity = 75
+        self.tidal_release_date = "2024-01-10"
 
     def image(self, size):
         return f"https://tidal.com/image/{self.id}/{size}"
+
+    def tracks(self, limit=None, offset=0):
+        return []
+
+    def similar(self):
+        return []
+
+    def review(self):
+        return "A great album."
 
 
 class MockTrack:
@@ -58,6 +74,28 @@ class MockTrack:
         self.artist = artist or MockArtist()
         self.album = album or MockAlbum()
         self.duration = 240
+        self.isrc = "USRC12345678"
+        self.explicit = False
+        self.track_num = 1
+        self.volume_num = 1
+        self.version = None
+        self.audio_quality = "LOSSLESS"
+        self.audio_modes = ["STEREO"]
+        self.copyright = "2024 Test Records"
+        self.popularity = 80
+        self.tidal_release_date = "2024-01-10"
+
+    def lyrics(self):
+        return MockLyrics()
+
+
+class MockLyrics:
+    """Mock TIDAL Lyrics object."""
+
+    def __init__(self, text="Test lyrics text", subtitles="", provider="Musixmatch"):
+        self.text = text
+        self.subtitles = subtitles
+        self.provider = provider
 
 
 class MockCreator:
