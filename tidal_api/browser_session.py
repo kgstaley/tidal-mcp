@@ -73,11 +73,11 @@ class BrowserSession(tidalapi.Session):
         return url, state
 
     def complete_pkce_login(self, code: str) -> tuple[bool, str]:
-        """
-        Complete the PKCE login flow using the authorization code from the callback.
+        """Complete the PKCE login flow using the authorization code from the callback.
 
-        Bypasses tidalapi's pkce_get_auth_token which rejects http:// redirect URIs.
-        Performs the token exchange POST directly.
+        Delegates to tidalapi's pkce_get_auth_token + process_auth_token.
+        Constructs a synthetic https:// URL to satisfy tidalapi's URL scheme check
+        (it only parses the ``code`` query param from the URL).
 
         Args:
             code: The authorization code from TIDAL's redirect
@@ -85,32 +85,11 @@ class BrowserSession(tidalapi.Session):
         Returns:
             Tuple of (success: bool, error_detail: str). error_detail is empty on success.
         """
-        scope_default = "r_usr+w_usr+w_sub"
-        data = {
-            "code": code,
-            "client_id": self.config.client_id_pkce,
-            "grant_type": "authorization_code",
-            "redirect_uri": self.config.pkce_uri_redirect,
-            "scope": scope_default,
-            "code_verifier": self.config.code_verifier,
-            "client_unique_key": self.config.client_unique_key,
-        }
-        # Confidential clients (personal developer apps) require client_secret
-        if self.config.client_secret_pkce:
-            data["client_secret"] = self.config.client_secret_pkce
         try:
-            logger.info(
-                "PKCE token exchange: endpoint=%s, client_id=%s, redirect_uri=%s",
-                self.config.api_oauth2_token,
-                self.config.client_id_pkce,
-                self.config.pkce_uri_redirect,
-            )
-            response = self.request_session.post(self.config.api_oauth2_token, data)
-            if not response.ok:
-                detail = f"HTTP {response.status_code}: {response.text}"
-                logger.error("PKCE token exchange failed: %s", detail)
-                return False, detail
-            token_json = response.json()
+            # tidalapi's pkce_get_auth_token rejects http:// URLs (checks for "https://").
+            # We already have the code from Flask, so build a synthetic URL it can parse.
+            synthetic_url = f"https://localhost/callback?code={code}"
+            token_json = self.pkce_get_auth_token(synthetic_url)
             self.process_auth_token(token_json, is_pkce_token=True)
             if self.check_login():
                 return True, ""
