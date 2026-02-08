@@ -1,0 +1,11 @@
+--- a/tidalapi/session.py
++++ b/tidalapi/session.py
+@@ -616,7 +616,7 @@ class Session:
+         url = "https://auth.tidal.com/v1/oauth2/device_authorization"
+         params = {"client_id": self.config.client_id, "scope": "r_usr w_usr w_sub"}
+
+-        request = self.request_session.post(url, params)
++        request = self.request_session.post(url, data=params)
+
+         if not request.ok:
+             log.error("Login failed: %s", request.text)

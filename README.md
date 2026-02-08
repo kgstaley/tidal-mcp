@@ -34,15 +34,23 @@ The LLM filters and curates results using your input, finds similar tracks via T
 
 ### Installation
 
+Quick setup via bootstrap script:
 ```bash
 git clone https://github.com/yuhuacheng/tidal-mcp.git
 cd tidal-mcp
+script/bootstrap
+```
+
+Or install manually:
+```bash
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install --editable .
 ```
 
 See [docs/setup.md](docs/setup.md) for MCP client configuration, first-time authentication, and optional custom OAuth credentials (`TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET`).
+
+**Note:** If you encounter authentication errors, the project includes an automated patch system for a known tidalapi v0.8.11 bug. The patch applies automatically during installation. See [docs/tidalapi-patch.md](docs/tidalapi-patch.md) for details.
 
 ## How It Works
 
@@ -94,9 +102,10 @@ See [docs/workflows.md](docs/workflows.md) for common usage patterns and prompt 
 ## Development
 
 ```bash
-uv run python3 -m pytest          # Run tests
-uv run ruff check .               # Lint
-uv run ruff format --check .      # Check formatting
+script/test              # Run tests
+script/lint              # Check formatting and linting
+script/lint --fix        # Auto-fix issues
+script/ci                # Run full CI pipeline (lint + test)
 ```
 
 See [docs/development.md](docs/development.md) for project structure and contributing guidelines.

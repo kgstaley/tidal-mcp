@@ -92,6 +92,13 @@ By default, the server uses `tidalapi`'s built-in OAuth client credentials. Thes
 
 If `TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET` are not set, the server falls back to `tidalapi`'s defaults.
 
+A template is provided at `.env.example` showing all supported environment variables. Copy it to `.env` for local development:
+
+```bash
+cp .env.example .env
+# Edit .env with your credentials
+```
+
 ### Steps to Install
 
 1. Open Claude Desktop
@@ -107,3 +114,29 @@ If `TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET` are not set, the server falls back 
 2. Ask Claude to log in to TIDAL: *"Please log me in to TIDAL"*
 3. Your browser will open to TIDAL's login page — sign in with your TIDAL account
 4. Once authenticated, your session is saved locally and persists until it expires
+
+## Troubleshooting Authentication
+
+### 415 Unsupported Media Type Error
+
+If you encounter authentication failures with error messages about "415" or "Content-Type not supported", this is a known issue with tidalapi v0.8.11.
+
+**The fix is automated:** The project includes a patch that's automatically applied during installation. To verify it's working:
+
+```bash
+# Quick verification test
+uv run python3 << 'EOF'
+import base64, requests
+client_id = base64.b64decode(base64.b64decode(b"WmxneVNuaGtiVzUw") + base64.b64decode(b"V2xkTE1HbDRWQT09")).decode("utf-8")
+r = requests.post("https://auth.tidal.com/v1/oauth2/device_authorization", data={"client_id": client_id, "scope": "r_usr w_usr w_sub"}, timeout=10)
+print(f"Status: {r.status_code} - {'✓ Working' if r.ok else '✗ Broken'}")
+EOF
+```
+
+**Expected output:** `Status: 200 - ✓ Working`
+
+If the patch isn't working:
+1. Manually reapply: `bash scripts/apply-patches.sh`
+2. See [docs/tidalapi-patch.md](tidalapi-patch.md) for manual patch instructions
+
+**Technical details:** See [docs/tidalapi-patch.md](tidalapi-patch.md) for the full explanation of the bug and fix

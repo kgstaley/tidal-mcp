@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **TIDAL authentication failure (415 Unsupported Media Type)** — TIDAL's OAuth device authorization endpoint now requires credentials in form-encoded request body instead of URL query string. Added automated patch system to fix `tidalapi` v0.8.11's `session.py:619` (changes `params=` to `data=`).
+  - Patch infrastructure: `patches/tidalapi-session.patch` (version controlled)
+  - Auto-application: `scripts/apply-patches.sh` (triggered via post-install hook)
+  - Integration tests: `tests/integration/test_auth_integration.py` (validates patch at protocol, library, and application levels)
+  - Documentation: `docs/tidalapi-patch.md` (technical details, manual fallback, verification steps)
+
 ### Added
 - **Development scripts** — `script/` directory following the "Scripts to Rule Them All" pattern:
   - `script/bootstrap` — check prerequisites (uv, Python 3.10+) and install all dependencies

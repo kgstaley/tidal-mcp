@@ -55,4 +55,7 @@ check_python_version
 echo "==> Installing dependencies..."
 uv sync --all-extras
 
+echo "==> Applying patches..."
+bash scripts/apply-patches.sh
+
 echo "==> Bootstrap complete!"
