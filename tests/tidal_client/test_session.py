@@ -1,4 +1,5 @@
 # tests/tidal_client/test_session.py
+import json
 import pytest
 import responses
 from datetime import datetime, timedelta
@@ -124,3 +125,79 @@ def test_request_raises_generic_error_on_other_http_errors(mock_config):
         session.request("GET", "artists/123")
 
     assert "500" in str(exc_info.value)
+
+
+def test_save_session_writes_token_data(mock_config, tmp_path):
+    """save_session should write token data to JSON file"""
+    session = TidalSession(mock_config)
+    session._access_token = "test_access_token"
+    session._refresh_token = "test_refresh_token"
+    session._token_expires_at = datetime(2024, 12, 31, 23, 59, 59)
+    session._user_id = "12345"
+
+    session_file = tmp_path / "test-session.json"
+    session.save_session(str(session_file))
+
+    # Verify file exists and contains correct data
+    assert session_file.exists()
+    with open(session_file) as f:
+        data = json.load(f)
+
+    assert data["access_token"] == "test_access_token"
+    assert data["refresh_token"] == "test_refresh_token"
+    assert data["token_expires_at"] == "2024-12-31T23:59:59"
+    assert data["user_id"] == "12345"
+
+
+def test_load_session_reads_token_data(mock_config, tmp_path):
+    """load_session should restore token data from JSON file"""
+    # Create session file
+    session_file = tmp_path / "test-session.json"
+    session_data = {
+        "access_token": "loaded_access_token",
+        "refresh_token": "loaded_refresh_token",
+        "token_expires_at": "2024-12-31T23:59:59",
+        "user_id": "67890"
+    }
+    with open(session_file, "w") as f:
+        json.dump(session_data, f)
+
+    # Load session
+    session = TidalSession(mock_config)
+    session.load_session(str(session_file))
+
+    assert session._access_token == "loaded_access_token"
+    assert session._refresh_token == "loaded_refresh_token"
+    assert session._token_expires_at == datetime(2024, 12, 31, 23, 59, 59)
+    assert session._user_id == "67890"
+
+
+def test_load_session_handles_missing_file(mock_config, tmp_path):
+    """load_session should handle missing file gracefully"""
+    session = TidalSession(mock_config)
+
+    # Should not raise exception
+    session.load_session(str(tmp_path / "nonexistent.json"))
+
+    # Tokens should remain None
+    assert session._access_token is None
+    assert session._refresh_token is None
+
+
+def test_save_session_handles_none_values(mock_config, tmp_path):
+    """save_session should handle None token values"""
+    session = TidalSession(mock_config)
+    # All tokens are None by default
+
+    session_file = tmp_path / "test-session.json"
+    session.save_session(str(session_file))
+
+    # Verify file exists and contains null values
+    assert session_file.exists()
+    with open(session_file) as f:
+        data = json.load(f)
+
+    assert data["access_token"] is None
+    assert data["refresh_token"] is None
+    assert data["token_expires_at"] is None
+    assert data["user_id"] is None

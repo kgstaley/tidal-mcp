@@ -1,7 +1,9 @@
 # tidal_client/session.py
 """Core TIDAL API session management"""
+import json
 from typing import Optional
 from datetime import datetime, timedelta
+from pathlib import Path
 import requests
 
 from tidal_client.config import Config
@@ -92,3 +94,41 @@ class TidalSession:
                 # Truncate error body to prevent huge error messages
                 error_body = e.response.text[:200] if e.response.text else "No response body"
                 raise TidalAPIError(f"HTTP {status_code}: {error_body}") from e
+
+    def save_session(self, session_file: str) -> None:
+        """Save session tokens to file
+
+        Args:
+            session_file: Path to save session data (JSON format)
+        """
+        session_data = {
+            "access_token": self._access_token,
+            "refresh_token": self._refresh_token,
+            "token_expires_at": self._token_expires_at.isoformat() if self._token_expires_at else None,
+            "user_id": self._user_id
+        }
+
+        Path(session_file).parent.mkdir(parents=True, exist_ok=True)
+        with open(session_file, "w") as f:
+            json.dump(session_data, f, indent=2)
+
+    def load_session(self, session_file: str) -> None:
+        """Load session tokens from file
+
+        Args:
+            session_file: Path to load session data from (JSON format)
+        """
+        if not Path(session_file).exists():
+            return
+
+        with open(session_file) as f:
+            session_data = json.load(f)
+
+        self._access_token = session_data.get("access_token")
+        self._refresh_token = session_data.get("refresh_token")
+
+        token_expires_str = session_data.get("token_expires_at")
+        if token_expires_str:
+            self._token_expires_at = datetime.fromisoformat(token_expires_str)
+
+        self._user_id = session_data.get("user_id")
