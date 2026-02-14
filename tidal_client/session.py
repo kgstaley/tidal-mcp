@@ -30,3 +30,35 @@ class TidalSession:
 
         # Consider token invalid if expiring within 60 seconds
         return datetime.now() < (self._token_expires_at - timedelta(seconds=60))
+
+    def request(self, method: str, path: str, **kwargs) -> dict:
+        """Make HTTP request to TIDAL API
+
+        Args:
+            method: HTTP method (GET, POST, DELETE, etc.)
+            path: API path relative to api_v1_url (e.g., "artists/123")
+            **kwargs: Additional arguments passed to requests.request()
+
+        Returns:
+            Parsed JSON response as dict
+        """
+        url = self.config.api_v1_url + path
+
+        # Add auth header if token available
+        headers = kwargs.pop("headers", {})
+        if self._access_token:
+            headers["Authorization"] = f"Bearer {self._access_token}"
+
+        # Set default timeout
+        timeout = kwargs.pop("timeout", self.config.default_timeout)
+
+        response = self.http.request(
+            method=method,
+            url=url,
+            headers=headers,
+            timeout=timeout,
+            **kwargs
+        )
+
+        response.raise_for_status()
+        return response.json()
