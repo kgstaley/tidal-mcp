@@ -248,3 +248,26 @@ def test_load_session_handles_invalid_datetime(mock_config, tmp_path):
     # Token should be loaded, but expires_at should be None
     assert session._access_token == "test_token"
     assert session._token_expires_at is None
+
+
+@responses.activate
+def test_login_oauth_device_flow(mock_config):
+    """login_oauth_device_flow should request device code"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/device_authorization",
+        json={
+            "device_code": "device123",
+            "user_code": "USER1234",
+            "verification_uri": "https://link.tidal.com/activate",
+            "expires_in": 300,
+            "interval": 5
+        },
+        status=200
+    )
+
+    session = TidalSession(mock_config)
+    result = session.login_oauth_device_flow()
+
+    assert result["user_code"] == "USER1234"
+    assert result["verification_uri"] == "https://link.tidal.com/activate"

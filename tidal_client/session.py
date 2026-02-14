@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from pathlib import Path
 import requests
@@ -14,6 +14,7 @@ from tidal_client.exceptions import (
     NotFoundError,
     RateLimitError,
 )
+from tidal_client.auth import request_device_code
 
 # HTTP status code constants
 HTTP_NOT_FOUND = 404
@@ -154,3 +155,12 @@ class TidalSession:
                 self._token_expires_at = None
 
         self._user_id = session_data.get("user_id")
+
+    def login_oauth_device_flow(self) -> Dict[str, Any]:
+        """Start OAuth device code flow
+
+        Returns:
+            Dict with device_code, user_code, verification_uri
+            User should visit verification_uri and enter user_code
+        """
+        return request_device_code(self.config)
