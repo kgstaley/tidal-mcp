@@ -3,6 +3,7 @@ import pytest
 import responses
 from datetime import datetime, timedelta
 from tidal_client.session import TidalSession
+from tidal_client.exceptions import NotFoundError, RateLimitError, TidalAPIError
 
 
 def test_session_init_with_config(mock_config):
@@ -68,3 +69,58 @@ def test_request_makes_http_call(mock_config):
     assert result == {"id": "123", "name": "Test Artist"}
     assert len(responses.calls) == 1
     assert responses.calls[0].request.url == "https://api.tidal.com/v1/artists/123"
+
+
+@responses.activate
+def test_request_raises_not_found_on_404(mock_config):
+    """request should raise NotFoundError on 404"""
+    responses.add(
+        responses.GET,
+        "https://api.tidal.com/v1/artists/999",
+        json={"error": "not found"},
+        status=404
+    )
+
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"
+
+    with pytest.raises(NotFoundError) as exc_info:
+        session.request("GET", "artists/999")
+
+    assert "artists/999" in str(exc_info.value)
+
+
+@responses.activate
+def test_request_raises_rate_limit_on_429(mock_config):
+    """request should raise RateLimitError on 429"""
+    responses.add(
+        responses.GET,
+        "https://api.tidal.com/v1/artists/123",
+        json={"error": "rate limit exceeded"},
+        status=429
+    )
+
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"
+
+    with pytest.raises(RateLimitError):
+        session.request("GET", "artists/123")
+
+
+@responses.activate
+def test_request_raises_generic_error_on_other_http_errors(mock_config):
+    """request should raise TidalAPIError on other HTTP errors"""
+    responses.add(
+        responses.GET,
+        "https://api.tidal.com/v1/artists/123",
+        json={"error": "internal server error"},
+        status=500
+    )
+
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"
+
+    with pytest.raises(TidalAPIError) as exc_info:
+        session.request("GET", "artists/123")
+
+    assert "500" in str(exc_info.value)
