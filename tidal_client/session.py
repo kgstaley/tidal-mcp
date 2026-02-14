@@ -11,6 +11,10 @@ from tidal_client.exceptions import (
     RateLimitError,
 )
 
+# HTTP status code constants
+HTTP_NOT_FOUND = 404
+HTTP_RATE_LIMIT = 429
+
 
 class TidalSession:
     """Manages TIDAL API HTTP session with OAuth token lifecycle"""
@@ -74,11 +78,17 @@ class TidalSession:
             return response.json()
 
         except requests.HTTPError as e:
-            if e.response.status_code == 404:
-                raise NotFoundError(f"Resource not found: {path}")
-            elif e.response.status_code == 429:
-                raise RateLimitError("Rate limit exceeded")
+            # Guard against missing response object
+            if e.response is None:
+                raise TidalAPIError("HTTP error with no response") from e
+
+            status_code = e.response.status_code
+
+            if status_code == HTTP_NOT_FOUND:
+                raise NotFoundError(f"Resource not found: {path}") from e
+            elif status_code == HTTP_RATE_LIMIT:
+                raise RateLimitError("Rate limit exceeded") from e
             else:
-                raise TidalAPIError(
-                    f"HTTP {e.response.status_code}: {e.response.text}"
-                )
+                # Truncate error body to prevent huge error messages
+                error_body = e.response.text[:200] if e.response.text else "No response body"
+                raise TidalAPIError(f"HTTP {status_code}: {error_body}") from e
