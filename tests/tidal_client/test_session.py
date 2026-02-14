@@ -1,5 +1,6 @@
 # tests/tidal_client/test_session.py
 import json
+import stat
 import pytest
 import responses
 from datetime import datetime, timedelta
@@ -201,3 +202,49 @@ def test_save_session_handles_none_values(mock_config, tmp_path):
     assert data["refresh_token"] is None
     assert data["token_expires_at"] is None
     assert data["user_id"] is None
+
+
+def test_save_session_sets_restrictive_permissions(mock_config, tmp_path):
+    """save_session should set file permissions to 0o600"""
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"
+
+    session_file = tmp_path / "test-session.json"
+    session.save_session(str(session_file))
+
+    # Check file permissions are owner read/write only (0o600)
+    file_stat = session_file.stat()
+    assert stat.S_IMODE(file_stat.st_mode) == 0o600
+
+
+def test_load_session_handles_corrupt_json(mock_config, tmp_path):
+    """load_session should handle corrupt JSON gracefully"""
+    # Create corrupt JSON file
+    session_file = tmp_path / "corrupt.json"
+    with open(session_file, "w") as f:
+        f.write("{invalid json")
+
+    session = TidalSession(mock_config)
+    # Should not raise exception
+    session.load_session(str(session_file))
+
+    # Tokens should remain None
+    assert session._access_token is None
+
+
+def test_load_session_handles_invalid_datetime(mock_config, tmp_path):
+    """load_session should handle invalid datetime format gracefully"""
+    session_file = tmp_path / "bad-datetime.json"
+    session_data = {
+        "access_token": "test_token",
+        "token_expires_at": "not-a-datetime"
+    }
+    with open(session_file, "w") as f:
+        json.dump(session_data, f)
+
+    session = TidalSession(mock_config)
+    session.load_session(str(session_file))
+
+    # Token should be loaded, but expires_at should be None
+    assert session._access_token == "test_token"
+    assert session._token_expires_at is None

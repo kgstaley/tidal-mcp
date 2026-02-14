@@ -1,6 +1,8 @@
 # tidal_client/session.py
 """Core TIDAL API session management"""
 import json
+import logging
+import os
 from typing import Optional
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -16,6 +18,9 @@ from tidal_client.exceptions import (
 # HTTP status code constants
 HTTP_NOT_FOUND = 404
 HTTP_RATE_LIMIT = 429
+
+# Session file formatting
+SESSION_FILE_INDENT = 2
 
 
 class TidalSession:
@@ -100,6 +105,9 @@ class TidalSession:
 
         Args:
             session_file: Path to save session data (JSON format)
+
+        Raises:
+            OSError: If file cannot be written
         """
         session_data = {
             "access_token": self._access_token,
@@ -108,9 +116,15 @@ class TidalSession:
             "user_id": self._user_id
         }
 
-        Path(session_file).parent.mkdir(parents=True, exist_ok=True)
-        with open(session_file, "w") as f:
-            json.dump(session_data, f, indent=2)
+        try:
+            Path(session_file).parent.mkdir(parents=True, exist_ok=True)
+            with open(session_file, "w", encoding="utf-8") as f:
+                json.dump(session_data, f, indent=SESSION_FILE_INDENT)
+            # Set restrictive permissions (owner read/write only)
+            os.chmod(session_file, 0o600)
+        except OSError as e:
+            logging.error(f"Failed to save session to {session_file}: {e}", exc_info=True)
+            raise
 
     def load_session(self, session_file: str) -> None:
         """Load session tokens from file
@@ -121,14 +135,22 @@ class TidalSession:
         if not Path(session_file).exists():
             return
 
-        with open(session_file) as f:
-            session_data = json.load(f)
+        try:
+            with open(session_file, encoding="utf-8") as f:
+                session_data = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            logging.warning(f"Failed to load session from {session_file}: {e}")
+            return
 
         self._access_token = session_data.get("access_token")
         self._refresh_token = session_data.get("refresh_token")
 
         token_expires_str = session_data.get("token_expires_at")
         if token_expires_str:
-            self._token_expires_at = datetime.fromisoformat(token_expires_str)
+            try:
+                self._token_expires_at = datetime.fromisoformat(token_expires_str)
+            except ValueError as e:
+                logging.warning(f"Invalid datetime format in session file: {e}")
+                self._token_expires_at = None
 
         self._user_id = session_data.get("user_id")
