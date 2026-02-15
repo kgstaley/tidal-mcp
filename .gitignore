@@ -33,3 +33,6 @@ tidal-session-oauth.json
 # Scratch/playground
 play.ipynb
 scratch/
+
+# Git worktrees
+.worktrees/
