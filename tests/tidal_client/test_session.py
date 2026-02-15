@@ -66,6 +66,7 @@ def test_request_makes_http_call(mock_config):
 
     session = TidalSession(mock_config)
     session._access_token = "test_token"  # Set token directly for now
+    session._token_expires_at = datetime.now() + timedelta(seconds=3600)  # Valid token
 
     result = session.request("GET", "artists/123")
 
@@ -86,6 +87,7 @@ def test_request_raises_not_found_on_404(mock_config):
 
     session = TidalSession(mock_config)
     session._access_token = "test_token"
+    session._token_expires_at = datetime.now() + timedelta(seconds=3600)  # Valid token
 
     with pytest.raises(NotFoundError) as exc_info:
         session.request("GET", "artists/999")
@@ -105,6 +107,7 @@ def test_request_raises_rate_limit_on_429(mock_config):
 
     session = TidalSession(mock_config)
     session._access_token = "test_token"
+    session._token_expires_at = datetime.now() + timedelta(seconds=3600)  # Valid token
 
     with pytest.raises(RateLimitError):
         session.request("GET", "artists/123")
@@ -122,6 +125,7 @@ def test_request_raises_generic_error_on_other_http_errors(mock_config):
 
     session = TidalSession(mock_config)
     session._access_token = "test_token"
+    session._token_expires_at = datetime.now() + timedelta(seconds=3600)  # Valid token
 
     with pytest.raises(TidalAPIError) as exc_info:
         session.request("GET", "artists/123")
@@ -384,3 +388,53 @@ def test_refresh_token_raises_without_refresh_token(mock_config):
         session.refresh_token()
 
     assert "No refresh token available" in str(exc_info.value)
+
+
+@responses.activate
+def test_request_auto_refreshes_expired_token(mock_config):
+    """request should automatically refresh token if expired"""
+    # Mock refresh token endpoint
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={
+            "access_token": "new_access_token",
+            "refresh_token": "new_refresh_token",
+            "expires_in": 3600
+        },
+        status=200
+    )
+
+    # Mock successful API call with new token
+    responses.add(
+        responses.GET,
+        "https://api.tidal.com/v1/artists/123",
+        json={"id": "123", "name": "Test Artist"},
+        status=200
+    )
+
+    session = TidalSession(mock_config)
+    session._access_token = "old_expired_token"
+    session._refresh_token = "valid_refresh_token"
+    session._token_expires_at = datetime.now() - timedelta(seconds=100)  # Expired
+
+    # Should auto-refresh and succeed
+    result = session.request("GET", "artists/123")
+
+    assert result["name"] == "Test Artist"
+    assert session._access_token == "new_access_token"
+    assert session._is_token_valid() is True
+    assert len(responses.calls) == 2  # 1 refresh + 1 API call
+
+
+def test_request_raises_auth_error_when_no_refresh_token(mock_config):
+    """request should raise AuthenticationError if token expired and no refresh token"""
+    session = TidalSession(mock_config)
+    session._access_token = "expired_token"
+    session._token_expires_at = datetime.now() - timedelta(seconds=100)
+    # No refresh token set
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        session.request("GET", "artists/123")
+
+    assert "token expired" in str(exc_info.value).lower() or "not authenticated" in str(exc_info.value).lower()

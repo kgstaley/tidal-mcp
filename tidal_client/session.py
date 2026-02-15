@@ -64,7 +64,17 @@ class TidalSession:
             NotFoundError: Resource not found (404)
             RateLimitError: Rate limit exceeded (429)
             TidalAPIError: Other HTTP errors
+            AuthenticationError: Token expired and no refresh token available
         """
+        # Check if token is valid, refresh if needed
+        if not self._is_token_valid():
+            if self._refresh_token:
+                # Token expired but we have refresh token - refresh automatically
+                self.refresh_token()
+            else:
+                # No way to authenticate
+                raise AuthenticationError("Access token expired and no refresh token available")
+
         url = self.config.api_v1_url + path
 
         # Add auth header if token available
