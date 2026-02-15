@@ -13,11 +13,19 @@ TIDAL MCP — an MCP server bridging Claude with the TIDAL music streaming API.
 
 ## Architecture
 
+- `tidal_client/` — Custom TIDAL API client (replacing tidalapi)
+  - `config.py` — API URLs and OAuth credentials
+  - `session.py` — TidalSession class (OAuth, HTTP requests, token management)
+  - `auth.py` — OAuth device flow functions (start_device_auth, poll_for_token, refresh_token)
+  - `exceptions.py` — Custom exception hierarchy (TidalClientError, TidalAPIError, etc.)
+  - `models/` — TypedDict models for API responses (future)
+  - `endpoints/` — API endpoint functions (future)
 - `tidal_api/routes/` — Flask Blueprints (one per domain)
 - `mcp_server/tools/` — MCP tool modules (one per domain)
 - `tidal_api/utils.py` — Shared formatters, helpers, constants
 - `mcp_server/utils.py` — MCP-side validation, HTTP helpers, error handling
 - `tests/` — Nested test modules mirroring source layout
+  - `tests/tidal_client/` — Tests for custom TIDAL client
 
 ## Runtime Architecture
 
@@ -52,13 +60,14 @@ TIDAL MCP — an MCP server bridging Claude with the TIDAL music streaming API.
 
 ## Testing
 
-- Every new feature must include tests (Flask endpoints + MCP tools + formatters)
-- Tests in `tests/tidal_api/` for Flask, `tests/mcp_server/` for MCP
+- Every new feature must include tests (Flask endpoints + MCP tools + formatters + tidal_client)
+- Tests in `tests/tidal_api/` for Flask, `tests/mcp_server/` for MCP, `tests/tidal_client/` for TIDAL client
 - All tests must pass before merging: `uv run python3 -m pytest`
-- **When tests fail due to unexpected API responses or method signatures**, verify against the actual tidalapi library source and TIDAL API docs before assuming test/code is correct. Check the installed package at `.venv/lib/python3.10/site-packages/tidalapi/` for exact method signatures, parameter names, and return types. Do not guess — read the source.
+- **When tests fail due to unexpected API responses or method signatures**, verify against TIDAL API docs before assuming test/code is correct
 - Shared mock classes in `tests/conftest.py`: `MockArtist`, `MockAlbum`, `MockTrack`, `MockCreator`, `MockPlaylist`, `MockUserPlaylist`, `MockVideo`, `MockResponse`
 - Flask test fixtures in `tests/tidal_api/conftest.py`: `client`, `mock_session_file`
 - MCP test fixtures in `tests/mcp_server/conftest.py`: `mock_auth_success`, `mock_auth_failure` (mock HTTP, not Flask)
+- TIDAL client test fixtures in `tests/tidal_client/conftest.py`: Mock OAuth responses, HTTP requests
 
 ## CI
 
@@ -82,7 +91,40 @@ Quick reference:
 - Formatters: Base formatters + detail formatters extend via dict spread
 - Testing: One test class per endpoint/tool with standard coverage (success, not_found, not_authenticated)
 
-## tidalapi Reference (v0.8.3)
+## tidal_client Reference
+
+The custom TIDAL API client replacing tidalapi v0.8.3. See `.serena/memories/tidal_client_architecture.md` for detailed documentation.
+
+**Key Components:**
+- `TidalSession` — Main client class (OAuth, HTTP requests, token management)
+- `start_device_auth()` — Start OAuth device flow (no browser required)
+- `poll_for_token()` — Poll for access token until user authorizes
+- `refresh_token()` — Refresh access token using refresh token
+- Exception hierarchy: `TidalClientError` → `TidalAPIError`, `TidalAuthError`, `TidalTokenExpiredError`, `TidalRateLimitError`
+
+**Usage Pattern:**
+```python
+from tidal_client import TidalSession, start_device_auth, poll_for_token
+
+# OAuth flow
+auth_data = start_device_auth()
+print(f"Visit {auth_data['verification_uri']} and enter {auth_data['user_code']}")
+tokens = poll_for_token(auth_data['device_code'])
+
+# Create session (auto-refreshes tokens)
+session = TidalSession(
+    access_token=tokens["access_token"],
+    refresh_token=tokens["refresh_token"],
+)
+
+# Make requests
+response = session.request("GET", "/tracks/123")
+track_data = response.json()
+```
+
+## tidalapi Reference (v0.8.3) - Legacy
+
+**NOTE:** Being replaced by `tidal_client`. This section will be removed once migration is complete.
 
 Key gotchas discovered from the installed library source:
 - `artist.image(dim)` is the method (returns URL), `artist.picture` is a string UUID attribute. Valid dims: 160, 320, 480, 750
