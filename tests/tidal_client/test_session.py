@@ -349,3 +349,38 @@ def test_complete_oauth_flow_validates_token_fields(mock_sleep, mock_config):
         session.complete_oauth_flow(device_code_data)
 
     assert "access_token" in str(exc_info.value)
+
+
+@responses.activate
+def test_refresh_token(mock_config):
+    """refresh_token should update session with new tokens"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={
+            "access_token": "refreshed_access",
+            "refresh_token": "refreshed_refresh",
+            "expires_in": 7200
+        },
+        status=200
+    )
+
+    session = TidalSession(mock_config)
+    session._refresh_token = "old_refresh_token"
+
+    session.refresh_token()
+
+    assert session._access_token == "refreshed_access"
+    assert session._refresh_token == "refreshed_refresh"
+    assert session._is_token_valid() is True
+
+
+def test_refresh_token_raises_without_refresh_token(mock_config):
+    """refresh_token should raise error if no refresh token available"""
+    session = TidalSession(mock_config)
+    # No refresh token set
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        session.refresh_token()
+
+    assert "No refresh token available" in str(exc_info.value)

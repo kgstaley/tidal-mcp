@@ -105,3 +105,52 @@ def poll_for_token(
             if hasattr(e, 'response') and e.response is not None:
                 error_msg += f" (HTTP {e.response.status_code})"
             raise AuthenticationError(error_msg)
+
+
+def refresh_access_token(
+    config: Config,
+    refresh_token: str,
+    session: Optional[requests.Session] = None
+) -> Dict[str, Any]:
+    """Refresh access token using refresh token
+
+    Args:
+        config: TIDAL API configuration
+        refresh_token: Refresh token from previous authentication
+        session: Optional requests.Session for connection reuse
+
+    Returns:
+        Dict with access_token, refresh_token, expires_in
+
+    Raises:
+        AuthenticationError: If refresh fails
+    """
+    http = session or requests.Session()
+
+    try:
+        response = http.post(
+            config.auth_token_url,
+            data={
+                "client_id": config.client_id,
+                "client_secret": config.client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+                "scope": OAUTH_SCOPES
+            },
+            timeout=config.default_timeout
+        )
+
+        data = response.json()
+
+        # Check for errors
+        if "error" in data:
+            raise AuthenticationError(f"Token refresh failed: {data['error']}")
+
+        response.raise_for_status()
+        return data
+
+    except requests.RequestException as e:
+        error_msg = f"Failed to refresh token: {type(e).__name__}"
+        if hasattr(e, 'response') and e.response is not None:
+            error_msg += f" (HTTP {e.response.status_code})"
+        raise AuthenticationError(error_msg)

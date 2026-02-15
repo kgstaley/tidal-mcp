@@ -204,3 +204,35 @@ class TidalSession:
         self._token_expires_at = datetime.now() + timedelta(seconds=expires_in_seconds)
 
         self._user_id = token_data.get("user_id")
+
+    def refresh_token(self) -> None:
+        """Refresh access token using refresh token
+
+        Raises:
+            AuthenticationError: If no refresh token available or refresh fails
+        """
+        if not self._refresh_token:
+            raise AuthenticationError("No refresh token available")
+
+        from tidal_client.auth import refresh_access_token
+
+        # Refresh the token
+        token_data = refresh_access_token(
+            self.config,
+            refresh_token=self._refresh_token,
+            session=self.http
+        )
+
+        # Validate required fields
+        required_fields = ["access_token", "refresh_token"]
+        missing = [f for f in required_fields if f not in token_data]
+        if missing:
+            raise AuthenticationError(f"Missing required token fields: {missing}")
+
+        # Update tokens
+        self._access_token = token_data["access_token"]
+        self._refresh_token = token_data["refresh_token"]
+
+        # Calculate new expiration
+        expires_in_seconds = token_data.get("expires_in", 3600)
+        self._token_expires_at = datetime.now() + timedelta(seconds=expires_in_seconds)

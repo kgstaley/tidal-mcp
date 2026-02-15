@@ -3,7 +3,7 @@ import pytest
 import responses
 from unittest.mock import patch
 
-from tidal_client.auth import request_device_code, poll_for_token, OAUTH_SCOPES
+from tidal_client.auth import request_device_code, poll_for_token, refresh_access_token, OAUTH_SCOPES
 from tidal_client.exceptions import AuthenticationError
 
 
@@ -173,3 +173,46 @@ def test_poll_for_token_handles_expired_token(mock_config):
         poll_for_token(mock_config, device_code="device123")
 
     assert "expired" in str(exc_info.value).lower()
+
+
+@responses.activate
+def test_refresh_access_token_success(mock_config):
+    """refresh_access_token should return new tokens"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={
+            "access_token": "new_access_token",
+            "refresh_token": "new_refresh_token",
+            "expires_in": 3600
+        },
+        status=200
+    )
+
+    result = refresh_access_token(mock_config, refresh_token="old_refresh_token")
+
+    assert result["access_token"] == "new_access_token"
+    assert result["refresh_token"] == "new_refresh_token"
+    assert result["expires_in"] == 3600
+
+    # Verify request parameters
+    assert len(responses.calls) == 1
+    request_body = responses.calls[0].request.body
+    assert "grant_type=refresh_token" in request_body
+    assert "refresh_token=old_refresh_token" in request_body
+
+
+@responses.activate
+def test_refresh_access_token_handles_errors(mock_config):
+    """refresh_access_token should raise AuthenticationError on failure"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"error": "invalid_grant"},
+        status=400
+    )
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        refresh_access_token(mock_config, refresh_token="invalid_token")
+
+    assert "invalid_grant" in str(exc_info.value)
