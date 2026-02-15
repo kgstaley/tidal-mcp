@@ -34,7 +34,7 @@ def request_device_code(config: Config) -> Dict[str, Any]:
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        raise AuthenticationError(f"Failed to request device code: {e}") from e
+        raise AuthenticationError(f"Failed to request device code: {e}")
 
 
 def poll_for_token(
@@ -104,4 +104,4 @@ def poll_for_token(
             error_msg = f"Failed to poll for token: {type(e).__name__}"
             if hasattr(e, 'response') and e.response is not None:
                 error_msg += f" (HTTP {e.response.status_code})"
-            raise AuthenticationError(error_msg) from e
+            raise AuthenticationError(error_msg)
