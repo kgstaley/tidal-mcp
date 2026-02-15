@@ -164,3 +164,30 @@ class TidalSession:
             User should visit verification_uri and enter user_code
         """
         return request_device_code(self.config)
+
+    def complete_oauth_flow(self, device_code_data: Dict[str, Any]) -> None:
+        """Complete OAuth device flow by polling for tokens and saving session
+
+        Args:
+            device_code_data: Response from login_oauth_device_flow() containing
+                             device_code, interval, expires_in
+        """
+        from tidal_client.auth import poll_for_token
+
+        # Poll for token
+        token_data = poll_for_token(
+            self.config,
+            device_code=device_code_data["device_code"],
+            interval=device_code_data.get("interval", 5),
+            expires_in=device_code_data.get("expires_in", 300)
+        )
+
+        # Store tokens
+        self._access_token = token_data["access_token"]
+        self._refresh_token = token_data["refresh_token"]
+
+        # Calculate expiration (expires_in is in seconds from now)
+        expires_in_seconds = token_data.get("expires_in", 3600)
+        self._token_expires_at = datetime.now() + timedelta(seconds=expires_in_seconds)
+
+        self._user_id = token_data.get("user_id")

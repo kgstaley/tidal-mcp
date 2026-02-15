@@ -4,6 +4,7 @@ import stat
 import pytest
 import responses
 from datetime import datetime, timedelta
+from unittest.mock import patch
 from tidal_client.session import TidalSession
 from tidal_client.exceptions import NotFoundError, RateLimitError, TidalAPIError
 
@@ -271,3 +272,36 @@ def test_login_oauth_device_flow(mock_config):
 
     assert result["user_code"] == "USER1234"
     assert result["verification_uri"] == "https://link.tidal.com/activate"
+
+
+@responses.activate
+@patch("time.sleep")
+def test_complete_oauth_flow(mock_sleep, mock_config):
+    """complete_oauth_flow should poll for token and store in session"""
+    # Mock token endpoint
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={
+            "access_token": "final_token",
+            "refresh_token": "final_refresh",
+            "expires_in": 7200,
+            "user_id": "user123"
+        },
+        status=200
+    )
+
+    session = TidalSession(mock_config)
+    device_code_data = {
+        "device_code": "device123",
+        "interval": 1,
+        "expires_in": 300
+    }
+
+    session.complete_oauth_flow(device_code_data)
+
+    assert session._access_token == "final_token"
+    assert session._refresh_token == "final_refresh"
+    assert session._user_id == "user123"
+    assert session._token_expires_at is not None
+    assert session._is_token_valid() is True
