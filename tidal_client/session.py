@@ -13,8 +13,9 @@ from tidal_client.exceptions import (
     TidalAPIError,
     NotFoundError,
     RateLimitError,
+    AuthenticationError,
 )
-from tidal_client.auth import request_device_code
+from tidal_client.auth import request_device_code, poll_for_token
 
 # HTTP status code constants
 HTTP_NOT_FOUND = 404
@@ -171,16 +172,28 @@ class TidalSession:
         Args:
             device_code_data: Response from login_oauth_device_flow() containing
                              device_code, interval, expires_in
-        """
-        from tidal_client.auth import poll_for_token
 
-        # Poll for token
+        Raises:
+            AuthenticationError: If required fields missing or polling fails
+        """
+        # Validate required fields in device_code_data
+        if "device_code" not in device_code_data:
+            raise AuthenticationError("Missing device_code in device_code_data")
+
+        # Poll for token (reuse session's HTTP connection)
         token_data = poll_for_token(
             self.config,
             device_code=device_code_data["device_code"],
             interval=device_code_data.get("interval", 5),
-            expires_in=device_code_data.get("expires_in", 300)
+            expires_in=device_code_data.get("expires_in", 300),
+            session=self.http  # Reuse existing session
         )
+
+        # Validate required token fields
+        required_fields = ["access_token", "refresh_token"]
+        missing = [f for f in required_fields if f not in token_data]
+        if missing:
+            raise AuthenticationError(f"Missing required token fields: {missing}")
 
         # Store tokens
         self._access_token = token_data["access_token"]

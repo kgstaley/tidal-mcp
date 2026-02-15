@@ -157,3 +157,19 @@ def test_poll_for_token_handles_errors(mock_config):
         poll_for_token(mock_config, device_code="device123")
 
     assert "access_denied" in str(exc_info.value)
+
+
+@responses.activate
+def test_poll_for_token_handles_expired_token(mock_config):
+    """poll_for_token should handle expired_token error explicitly"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"error": "expired_token"},
+        status=400
+    )
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        poll_for_token(mock_config, device_code="device123")
+
+    assert "expired" in str(exc_info.value).lower()

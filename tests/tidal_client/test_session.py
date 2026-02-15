@@ -6,7 +6,7 @@ import responses
 from datetime import datetime, timedelta
 from unittest.mock import patch
 from tidal_client.session import TidalSession
-from tidal_client.exceptions import NotFoundError, RateLimitError, TidalAPIError
+from tidal_client.exceptions import NotFoundError, RateLimitError, TidalAPIError, AuthenticationError
 
 
 def test_session_init_with_config(mock_config):
@@ -305,3 +305,47 @@ def test_complete_oauth_flow(mock_sleep, mock_config):
     assert session._user_id == "user123"
     assert session._token_expires_at is not None
     assert session._is_token_valid() is True
+
+
+def test_complete_oauth_flow_validates_device_code(mock_config):
+    """complete_oauth_flow should validate device_code is present"""
+    session = TidalSession(mock_config)
+
+    # Missing device_code
+    device_code_data = {
+        "interval": 5,
+        "expires_in": 300
+    }
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        session.complete_oauth_flow(device_code_data)
+
+    assert "device_code" in str(exc_info.value)
+
+
+@responses.activate
+@patch("time.sleep")
+def test_complete_oauth_flow_validates_token_fields(mock_sleep, mock_config):
+    """complete_oauth_flow should validate token_data has required fields"""
+    # Mock response missing access_token
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={
+            "refresh_token": "test_refresh",
+            "expires_in": 3600
+        },
+        status=200
+    )
+
+    session = TidalSession(mock_config)
+    device_code_data = {
+        "device_code": "device123",
+        "interval": 1,
+        "expires_in": 300
+    }
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        session.complete_oauth_flow(device_code_data)
+
+    assert "access_token" in str(exc_info.value)
