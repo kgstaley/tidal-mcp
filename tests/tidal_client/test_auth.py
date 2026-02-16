@@ -216,3 +216,93 @@ def test_poll_for_token_sends_correct_payload():
     assert "device_code=my_device_code" in body
     assert "client_id=my_client" in body
     assert "client_secret=my_secret" in body
+
+
+@responses.activate
+def test_refresh_token_updates_access_token():
+    """refresh_token should get new access token using refresh token"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={
+            "access_token": "refreshed_access_token",
+            "refresh_token": "new_refresh_token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "user": {"user_id": "12345"},
+        },
+        status=200,
+    )
+
+    config = Config(client_id="test_client", client_secret="test_secret")
+    session = TidalSession(config)
+    session._refresh_token = "old_refresh_token"
+    session._user_id = "12345"
+
+    result = session.refresh_access_token()
+
+    assert result["access_token"] == "refreshed_access_token"
+    assert result["refresh_token"] == "new_refresh_token"
+    assert session._access_token == "refreshed_access_token"
+    assert session._refresh_token == "new_refresh_token"
+    assert session._token_expires_at is not None
+
+
+@responses.activate
+def test_refresh_token_sends_correct_payload():
+    """refresh_token should send correct grant_type and tokens"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"access_token": "new_token", "refresh_token": "new_refresh", "expires_in": 3600},
+        status=200,
+    )
+
+    config = Config(client_id="my_client", client_secret="my_secret")
+    session = TidalSession(config)
+    session._refresh_token = "my_refresh_token"
+
+    session.refresh_access_token()
+
+    request = responses.calls[0].request
+    body = request.body
+
+    assert "grant_type=refresh_token" in body
+    assert "refresh_token=my_refresh_token" in body
+    assert "client_id=my_client" in body
+    assert "client_secret=my_secret" in body
+
+
+@responses.activate
+def test_refresh_token_raises_error_when_no_refresh_token():
+    """refresh_token should raise error if no refresh token available"""
+    config = Config(client_id="test_client", client_secret="test_secret")
+    session = TidalSession(config)
+    # Don't set refresh_token
+
+    try:
+        session.refresh_access_token()
+        assert False, "Should have raised TidalAPIError"
+    except TidalAPIError as e:
+        assert "refresh token" in str(e).lower()
+
+
+@responses.activate
+def test_refresh_token_raises_error_on_invalid_token():
+    """refresh_token should raise error if refresh token is invalid"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"error": "invalid_grant", "error_description": "Invalid refresh token"},
+        status=400,
+    )
+
+    config = Config(client_id="test_client", client_secret="test_secret")
+    session = TidalSession(config)
+    session._refresh_token = "invalid_refresh_token"
+
+    try:
+        session.refresh_access_token()
+        assert False, "Should have raised TidalAPIError"
+    except TidalAPIError as e:
+        assert "invalid" in str(e).lower() or "refresh" in str(e).lower()

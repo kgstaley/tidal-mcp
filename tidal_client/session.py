@@ -176,6 +176,69 @@ class TidalSession:
                 time.sleep(interval)
                 continue
 
+    def refresh_access_token(self) -> dict:
+        """Refresh expired access token using refresh token
+
+        Uses the refresh token to obtain a new access token without requiring
+        the user to re-authorize. Should be called when access token expires.
+
+        Returns:
+            Token response dict with new access_token, refresh_token, expires_in
+
+        Raises:
+            TidalAPIError: If no refresh token or refresh fails
+        """
+        if not self._refresh_token:
+            raise TidalAPIError("No refresh token available. Please re-authenticate.")
+
+        url = self.config.auth_token_url
+
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": self._refresh_token,
+            "client_id": self.config.client_id,
+            "client_secret": self.config.client_secret,
+        }
+
+        try:
+            response = self.http.post(url, headers=headers, data=data, timeout=self.config.default_timeout)
+            response.raise_for_status()
+
+            # Success - extract tokens and update session
+            token_data = response.json()
+
+            self._access_token = token_data["access_token"]
+
+            # Refresh token may be rotated (new refresh token returned)
+            if "refresh_token" in token_data:
+                self._refresh_token = token_data["refresh_token"]
+
+            expires_in = token_data.get("expires_in", 3600)
+            self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+
+            # Update user_id if present
+            user_data = token_data.get("user", {})
+            if "user_id" in user_data:
+                self._user_id = user_data["user_id"]
+
+            return token_data
+
+        except HTTPError as e:
+            error_text = e.response.text[:200] if e.response.text else "Unknown error"
+            raise TidalAPIError(f"Token refresh failed: {error_text}")
+
+        except Timeout:
+            raise TidalAPIError(f"Token refresh timeout after {self.config.default_timeout}s")
+
+        except ConnectionError as e:
+            error_msg = str(e)[:200] if str(e) else "Connection failed"
+            raise TidalAPIError(f"Token refresh connection error: {error_msg}")
+
+        except RequestsJSONDecodeError:
+            raise TidalAPIError("Invalid JSON response from token refresh")
+
     def request(self, method: str, path: str, **kwargs) -> dict:
         """Make HTTP request to TIDAL API with error handling
 
