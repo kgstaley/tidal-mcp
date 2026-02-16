@@ -5,6 +5,7 @@ import os
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import requests
 from requests.exceptions import ConnectionError, HTTPError, Timeout
@@ -16,6 +17,9 @@ from tidal_client.exceptions import (
     RateLimitError,
     TidalAPIError,
 )
+
+if TYPE_CHECKING:
+    from tidal_client.endpoints.artists import ArtistsEndpoint
 
 
 class TidalSession:
@@ -30,6 +34,9 @@ class TidalSession:
         self._refresh_token: str | None = None
         self._token_expires_at: datetime | None = None
         self._user_id: str | None = None
+
+        # Lazy-loaded endpoints
+        self._artists: ArtistsEndpoint | None = None
 
     def _is_token_valid(self) -> bool:
         """Check if current access token is valid and not expired"""
@@ -350,3 +357,16 @@ class TidalSession:
         expires_at_str = session_data.get("expires_at")
         if expires_at_str:
             self._token_expires_at = datetime.fromisoformat(expires_at_str)
+
+    @property
+    def artists(self) -> "ArtistsEndpoint":
+        """Lazy-load artists endpoint
+
+        Returns:
+            ArtistsEndpoint instance for artist operations
+        """
+        if not self._artists:
+            from tidal_client.endpoints.artists import ArtistsEndpoint
+
+            self._artists = ArtistsEndpoint(self)
+        return self._artists
