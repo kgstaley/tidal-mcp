@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+import requests
 import responses
 
 from tidal_client.exceptions import NotFoundError, RateLimitError, TidalAPIError
@@ -112,3 +113,53 @@ def test_request_raises_generic_error_on_other_http_errors(mock_config):
         session.request("GET", "artists/123")
 
     assert "500" in str(exc_info.value)
+
+
+@responses.activate
+def test_request_raises_error_on_timeout(mock_config):
+    """request should raise TidalAPIError on timeout"""
+    responses.add(responses.GET, "https://api.tidal.com/v1/artists/123", body=requests.Timeout("Request timed out"))
+
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"
+
+    with pytest.raises(TidalAPIError) as exc_info:
+        session.request("GET", "artists/123")
+
+    assert "timeout" in str(exc_info.value).lower()
+
+
+@responses.activate
+def test_request_raises_error_on_connection_error(mock_config):
+    """request should raise TidalAPIError on connection error"""
+    responses.add(
+        responses.GET, "https://api.tidal.com/v1/artists/123", body=requests.ConnectionError("Connection refused")
+    )
+
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"
+
+    with pytest.raises(TidalAPIError) as exc_info:
+        session.request("GET", "artists/123")
+
+    assert "connection" in str(exc_info.value).lower()
+
+
+@responses.activate
+def test_request_raises_error_on_invalid_json(mock_config):
+    """request should raise TidalAPIError on invalid JSON response"""
+    responses.add(
+        responses.GET,
+        "https://api.tidal.com/v1/artists/123",
+        body="<html>Server Error</html>",
+        status=200,
+        content_type="text/html",
+    )
+
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"
+
+    with pytest.raises(TidalAPIError) as exc_info:
+        session.request("GET", "artists/123")
+
+    assert "json" in str(exc_info.value).lower()

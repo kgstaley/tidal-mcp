@@ -50,7 +50,7 @@ class TidalSession:
         Raises:
             NotFoundError: Resource not found (404)
             RateLimitError: Rate limit exceeded (429)
-            TidalAPIError: Other HTTP errors
+            TidalAPIError: Network errors, timeouts, or other HTTP errors
         """
         url = self.config.api_v1_url + path
 
@@ -73,4 +73,15 @@ class TidalSession:
             elif e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded")
             else:
-                raise TidalAPIError(f"HTTP {e.response.status_code}: {e.response.text}")
+                # Limit error text to avoid leaking sensitive info
+                error_text = e.response.text[:200] if e.response.text else "No details"
+                raise TidalAPIError(f"HTTP {e.response.status_code}: {error_text}")
+
+        except requests.Timeout:
+            raise TidalAPIError(f"Request timeout after {timeout}s: {path}")
+
+        except requests.ConnectionError as e:
+            raise TidalAPIError(f"Connection error: {str(e)}")
+
+        except requests.JSONDecodeError:
+            raise TidalAPIError(f"Invalid JSON response from API: {path}")
