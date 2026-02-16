@@ -1,9 +1,8 @@
-import pytest
 from tidal_client.exceptions import (
-    TidalAPIError,
     AuthenticationError,
     NotFoundError,
     RateLimitError,
+    TidalAPIError,
 )
 
 
