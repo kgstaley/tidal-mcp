@@ -1,6 +1,9 @@
 """Core TIDAL API session management"""
 
+import json
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import requests
 from requests.exceptions import ConnectionError, HTTPError, JSONDecodeError, Timeout
@@ -88,3 +91,42 @@ class TidalSession:
 
         except JSONDecodeError:
             raise TidalAPIError(f"Invalid JSON response from API: {path}")
+
+    def save_session(self, filepath: str) -> None:
+        """Save session state to JSON file
+
+        Args:
+            filepath: Absolute path to save session file
+        """
+        session_data = {
+            "access_token": self._access_token,
+            "refresh_token": self._refresh_token,
+            "user_id": self._user_id,
+            "expires_at": self._token_expires_at.isoformat() if self._token_expires_at else None,
+        }
+
+        # Ensure directory exists
+        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+
+        with open(filepath, "w") as f:
+            json.dump(session_data, f, indent=2)
+
+    def load_session(self, filepath: str) -> None:
+        """Load session state from JSON file
+
+        Args:
+            filepath: Absolute path to session file
+        """
+        if not os.path.exists(filepath):
+            return
+
+        with open(filepath) as f:
+            session_data = json.load(f)
+
+        self._access_token = session_data.get("access_token")
+        self._refresh_token = session_data.get("refresh_token")
+        self._user_id = session_data.get("user_id")
+
+        expires_at_str = session_data.get("expires_at")
+        if expires_at_str:
+            self._token_expires_at = datetime.fromisoformat(expires_at_str)
