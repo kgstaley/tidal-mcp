@@ -82,3 +82,137 @@ def test_request_device_code_raises_error_on_failure():
         assert False, "Should have raised TidalAPIError"
     except TidalAPIError as e:
         assert "400" in str(e)
+
+
+@responses.activate
+def test_poll_for_token_returns_tokens_on_success():
+    """poll_for_token should return access and refresh tokens when authorized"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={
+            "access_token": "new_access_token",
+            "refresh_token": "new_refresh_token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "user": {"user_id": "12345"},
+        },
+        status=200,
+    )
+
+    config = Config(client_id="test_client", client_secret="test_secret")
+    session = TidalSession(config)
+
+    result = session.poll_for_token(device_code="test_device_code", interval=1, timeout=5)
+
+    assert result["access_token"] == "new_access_token"
+    assert result["refresh_token"] == "new_refresh_token"
+    assert result["expires_in"] == 3600
+    assert session._access_token == "new_access_token"
+    assert session._refresh_token == "new_refresh_token"
+    assert session._user_id == "12345"
+    assert session._token_expires_at is not None
+
+
+@responses.activate
+def test_poll_for_token_retries_on_authorization_pending():
+    """poll_for_token should retry when authorization is pending"""
+    # First two requests return "authorization_pending"
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"error": "authorization_pending"},
+        status=400,
+    )
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"error": "authorization_pending"},
+        status=400,
+    )
+    # Third request succeeds
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={
+            "access_token": "success_token",
+            "refresh_token": "success_refresh",
+            "expires_in": 3600,
+            "user": {"user_id": "67890"},
+        },
+        status=200,
+    )
+
+    config = Config(client_id="test_client", client_secret="test_secret")
+    session = TidalSession(config)
+
+    result = session.poll_for_token(device_code="test_device_code", interval=0.1, timeout=5)
+
+    # Should have made 3 requests
+    assert len(responses.calls) == 3
+    assert result["access_token"] == "success_token"
+
+
+@responses.activate
+def test_poll_for_token_raises_error_on_access_denied():
+    """poll_for_token should raise TidalAPIError when user denies access"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"error": "access_denied", "error_description": "User denied access"},
+        status=400,
+    )
+
+    config = Config(client_id="test_client", client_secret="test_secret")
+    session = TidalSession(config)
+
+    try:
+        session.poll_for_token(device_code="test_device_code", interval=1, timeout=5)
+        assert False, "Should have raised TidalAPIError"
+    except TidalAPIError as e:
+        assert "access_denied" in str(e) or "denied" in str(e).lower()
+
+
+@responses.activate
+def test_poll_for_token_raises_error_on_expired_token():
+    """poll_for_token should raise TidalAPIError when device code expires"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"error": "expired_token"},
+        status=400,
+    )
+
+    config = Config(client_id="test_client", client_secret="test_secret")
+    session = TidalSession(config)
+
+    try:
+        session.poll_for_token(device_code="test_device_code", interval=1, timeout=5)
+        assert False, "Should have raised TidalAPIError"
+    except TidalAPIError as e:
+        assert "expired" in str(e).lower()
+
+
+@responses.activate
+def test_poll_for_token_sends_correct_payload():
+    """poll_for_token should send correct OAuth token request"""
+    responses.add(
+        responses.POST,
+        "https://auth.tidal.com/v1/oauth2/token",
+        json={"access_token": "token", "refresh_token": "refresh", "expires_in": 3600},
+        status=200,
+    )
+
+    config = Config(client_id="my_client", client_secret="my_secret")
+    session = TidalSession(config)
+
+    session.poll_for_token(device_code="my_device_code", interval=1, timeout=5)
+
+    request = responses.calls[0].request
+    body = request.body
+
+    # URL-encoded format (colons become %3A)
+    assert "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code" in body
+    assert "device_code=my_device_code" in body
+    assert "client_id=my_client" in body
+    assert "client_secret=my_secret" in body

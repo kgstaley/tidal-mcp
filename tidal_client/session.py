@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -89,6 +90,91 @@ class TidalSession:
 
         except RequestsJSONDecodeError:
             raise TidalAPIError("Invalid JSON response from auth server")
+
+    def poll_for_token(self, device_code: str, interval: int = 5, timeout: int = 300) -> dict:
+        """Poll for OAuth token after user authorization
+
+        This is step 2 of the OAuth Device Code Flow. Polls the token endpoint
+        until the user authorizes the app, denies access, or the request times out.
+
+        Args:
+            device_code: Device code from request_device_code()
+            interval: Seconds to wait between polling attempts (default: 5)
+            timeout: Maximum seconds to poll before giving up (default: 300)
+
+        Returns:
+            Token response dict with access_token, refresh_token, expires_in, user
+
+        Raises:
+            TidalAPIError: If user denies, code expires, or polling times out
+        """
+        url = self.config.auth_token_url
+
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        data = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "device_code": device_code,
+            "client_id": self.config.client_id,
+            "client_secret": self.config.client_secret,
+        }
+
+        start_time = time.time()
+
+        while True:
+            # Check timeout
+            if time.time() - start_time > timeout:
+                raise TidalAPIError(f"OAuth polling timeout after {timeout}s")
+
+            try:
+                response = self.http.post(url, headers=headers, data=data, timeout=self.config.default_timeout)
+                response.raise_for_status()
+
+                # Success - extract tokens and user info
+                token_data = response.json()
+
+                self._access_token = token_data["access_token"]
+                self._refresh_token = token_data.get("refresh_token")
+
+                expires_in = token_data.get("expires_in", 3600)
+                self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+
+                user_data = token_data.get("user", {})
+                self._user_id = user_data.get("user_id")
+
+                return token_data
+
+            except HTTPError as e:
+                # Parse error response
+                try:
+                    error_data = e.response.json()
+                    error_code = error_data.get("error", "unknown")
+                except Exception:
+                    error_code = "unknown"
+
+                # Check if we should retry or fail
+                if error_code == "authorization_pending":
+                    # User hasn't authorized yet - wait and retry
+                    time.sleep(interval)
+                    continue
+                elif error_code == "slow_down":
+                    # Polling too fast - increase interval and retry
+                    time.sleep(interval + 5)
+                    continue
+                else:
+                    # Terminal error (access_denied, expired_token, etc.)
+                    error_text = e.response.text[:200] if e.response.text else error_code
+                    raise TidalAPIError(f"OAuth authorization failed: {error_text}")
+
+            except (Timeout, ConnectionError):
+                # Network error - wait and retry
+                time.sleep(interval)
+                continue
+
+            except RequestsJSONDecodeError:
+                # Invalid response - wait and retry
+                time.sleep(interval)
+                continue
 
     def request(self, method: str, path: str, **kwargs) -> dict:
         """Make HTTP request to TIDAL API with error handling
