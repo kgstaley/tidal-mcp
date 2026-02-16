@@ -5,6 +5,11 @@ from datetime import datetime, timedelta
 import requests
 
 from tidal_client.config import Config
+from tidal_client.exceptions import (
+    NotFoundError,
+    RateLimitError,
+    TidalAPIError,
+)
 
 
 class TidalSession:
@@ -32,7 +37,7 @@ class TidalSession:
         return datetime.now() < (self._token_expires_at - timedelta(seconds=60))
 
     def request(self, method: str, path: str, **kwargs) -> dict:
-        """Make HTTP request to TIDAL API
+        """Make HTTP request to TIDAL API with error handling
 
         Args:
             method: HTTP method (GET, POST, DELETE, etc.)
@@ -41,6 +46,11 @@ class TidalSession:
 
         Returns:
             Parsed JSON response as dict
+
+        Raises:
+            NotFoundError: Resource not found (404)
+            RateLimitError: Rate limit exceeded (429)
+            TidalAPIError: Other HTTP errors
         """
         url = self.config.api_v1_url + path
 
@@ -52,13 +62,15 @@ class TidalSession:
         # Set default timeout
         timeout = kwargs.pop("timeout", self.config.default_timeout)
 
-        response = self.http.request(
-            method=method,
-            url=url,
-            headers=headers,
-            timeout=timeout,
-            **kwargs
-        )
+        try:
+            response = self.http.request(method=method, url=url, headers=headers, timeout=timeout, **kwargs)
+            response.raise_for_status()
+            return response.json()
 
-        response.raise_for_status()
-        return response.json()
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                raise NotFoundError(f"Resource not found: {path}")
+            elif e.response.status_code == 429:
+                raise RateLimitError("Rate limit exceeded")
+            else:
+                raise TidalAPIError(f"HTTP {e.response.status_code}: {e.response.text}")
