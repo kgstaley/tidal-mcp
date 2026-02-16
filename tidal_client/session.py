@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 
 import requests
+from requests.exceptions import ConnectionError, HTTPError, JSONDecodeError, Timeout
 
 from tidal_client.config import Config
 from tidal_client.exceptions import (
@@ -67,7 +68,7 @@ class TidalSession:
             response.raise_for_status()
             return response.json()
 
-        except requests.HTTPError as e:
+        except HTTPError as e:
             if e.response.status_code == 404:
                 raise NotFoundError(f"Resource not found: {path}")
             elif e.response.status_code == 429:
@@ -77,11 +78,13 @@ class TidalSession:
                 error_text = e.response.text[:200] if e.response.text else "No details"
                 raise TidalAPIError(f"HTTP {e.response.status_code}: {error_text}")
 
-        except requests.Timeout:
+        except Timeout:
             raise TidalAPIError(f"Request timeout after {timeout}s: {path}")
 
-        except requests.ConnectionError as e:
-            raise TidalAPIError(f"Connection error: {str(e)}")
+        except ConnectionError as e:
+            # Truncate to prevent info leakage similar to HTTP errors
+            error_msg = str(e)[:200] if str(e) else "Connection failed"
+            raise TidalAPIError(f"Connection error: {error_msg}")
 
-        except requests.JSONDecodeError:
+        except JSONDecodeError:
             raise TidalAPIError(f"Invalid JSON response from API: {path}")
