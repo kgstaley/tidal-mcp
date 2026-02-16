@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+import responses
+
 from tidal_client.session import TidalSession
 
 
@@ -47,3 +49,23 @@ def test_is_token_valid_returns_true_when_valid(mock_config):
     session._token_expires_at = datetime.now() + timedelta(seconds=3600)
 
     assert session._is_token_valid() is True
+
+
+@responses.activate
+def test_request_makes_http_call(mock_config):
+    """request should make HTTP call to TIDAL API"""
+    responses.add(
+        responses.GET,
+        "https://api.tidal.com/v1/artists/123",
+        json={"id": "123", "name": "Test Artist"},
+        status=200
+    )
+
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"  # Set token directly for now
+
+    result = session.request("GET", "artists/123")
+
+    assert result == {"id": "123", "name": "Test Artist"}
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request.url == "https://api.tidal.com/v1/artists/123"
