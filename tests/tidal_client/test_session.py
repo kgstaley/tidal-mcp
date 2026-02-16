@@ -4,6 +4,7 @@ import pytest
 import requests
 import responses
 
+from tidal_client.endpoints.artists import ArtistsEndpoint
 from tidal_client.exceptions import NotFoundError, RateLimitError, TidalAPIError
 from tidal_client.session import TidalSession
 
@@ -253,3 +254,22 @@ def test_request_raises_error_when_refresh_fails(mock_config):
         session.request("GET", "artists/123")
 
     assert "refresh" in str(exc_info.value).lower()
+
+
+def test_session_has_artists_property(mock_config):
+    """Session should have lazy-loaded artists endpoint"""
+    session = TidalSession(mock_config)
+
+    assert isinstance(session.artists, ArtistsEndpoint)
+    assert session.artists.session == session
+
+
+def test_session_artists_is_cached(mock_config):
+    """Session should cache artists endpoint instance"""
+    session = TidalSession(mock_config)
+
+    artists1 = session.artists
+    artists2 = session.artists
+
+    # Should return the same instance
+    assert artists1 is artists2
