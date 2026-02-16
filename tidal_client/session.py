@@ -240,7 +240,7 @@ class TidalSession:
             raise TidalAPIError("Invalid JSON response from token refresh")
 
     def request(self, method: str, path: str, **kwargs) -> dict:
-        """Make HTTP request to TIDAL API with error handling
+        """Make HTTP request to TIDAL API with automatic token refresh
 
         Args:
             method: HTTP method (GET, POST, DELETE, etc.)
@@ -255,6 +255,10 @@ class TidalSession:
             RateLimitError: Rate limit exceeded (429)
             TidalAPIError: Network errors, timeouts, or other HTTP errors
         """
+        # Auto-refresh expired token before making request
+        if not self._is_token_valid() and self._refresh_token:
+            self.refresh_access_token()
+
         url = self.config.api_v1_url + path
 
         # Add auth header if token available
