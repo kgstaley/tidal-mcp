@@ -1,6 +1,7 @@
 """Tests for session save/load functionality"""
 import json
 import os
+import stat
 import tempfile
 from datetime import datetime, timedelta
 
@@ -73,5 +74,36 @@ def test_load_session_does_nothing_if_file_missing(mock_config, temp_session_fil
     # Should not raise exception
     session.load_session(temp_session_file)
 
+    assert session._access_token is None
+    assert session._refresh_token is None
+
+
+def test_save_session_sets_restrictive_permissions(mock_config, temp_session_file):
+    """save_session should set file permissions to 0600 (owner-only)"""
+    session = TidalSession(mock_config)
+    session._access_token = "test_token"
+    session._refresh_token = "refresh_token"
+    session._user_id = "12345"
+
+    session.save_session(temp_session_file)
+
+    # Check file permissions are 0600 (rw-------)
+    file_stat = os.stat(temp_session_file)
+    file_mode = stat.S_IMODE(file_stat.st_mode)
+    assert file_mode == 0o600
+
+
+def test_load_session_handles_corrupted_json(mock_config, temp_session_file):
+    """load_session should handle corrupted JSON gracefully"""
+    # Write invalid JSON to file
+    with open(temp_session_file, "w") as f:
+        f.write("{invalid json content")
+
+    session = TidalSession(mock_config)
+
+    # Should not raise exception
+    session.load_session(temp_session_file)
+
+    # Session should remain empty
     assert session._access_token is None
     assert session._refresh_token is None

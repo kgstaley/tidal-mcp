@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
-from requests.exceptions import ConnectionError, HTTPError, JSONDecodeError, Timeout
+from requests.exceptions import ConnectionError, HTTPError, Timeout
+from requests.exceptions import JSONDecodeError as RequestsJSONDecodeError
 
 from tidal_client.config import Config
 from tidal_client.exceptions import (
@@ -89,7 +90,7 @@ class TidalSession:
             error_msg = str(e)[:200] if str(e) else "Connection failed"
             raise TidalAPIError(f"Connection error: {error_msg}")
 
-        except JSONDecodeError:
+        except RequestsJSONDecodeError:
             raise TidalAPIError(f"Invalid JSON response from API: {path}")
 
     def save_session(self, filepath: str) -> None:
@@ -97,6 +98,9 @@ class TidalSession:
 
         Args:
             filepath: Absolute path to save session file
+
+        Raises:
+            TidalAPIError: If file cannot be written
         """
         session_data = {
             "access_token": self._access_token,
@@ -105,11 +109,18 @@ class TidalSession:
             "expires_at": self._token_expires_at.isoformat() if self._token_expires_at else None,
         }
 
-        # Ensure directory exists
-        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+        try:
+            # Ensure directory exists
+            Path(filepath).parent.mkdir(parents=True, exist_ok=True)
 
-        with open(filepath, "w") as f:
-            json.dump(session_data, f, indent=2)
+            with open(filepath, "w") as f:
+                json.dump(session_data, f, indent=2)
+
+            # Restrict permissions to owner only (rw-------)
+            os.chmod(filepath, 0o600)
+
+        except OSError as e:
+            raise TidalAPIError(f"Failed to save session file: {str(e)[:200]}")
 
     def load_session(self, filepath: str) -> None:
         """Load session state from JSON file
@@ -120,8 +131,15 @@ class TidalSession:
         if not os.path.exists(filepath):
             return
 
-        with open(filepath) as f:
-            session_data = json.load(f)
+        try:
+            with open(filepath) as f:
+                session_data = json.load(f)
+        except json.JSONDecodeError:
+            # Invalid JSON - treat as missing session
+            return
+        except OSError:
+            # Permission denied or other I/O error - treat as missing session
+            return
 
         self._access_token = session_data.get("access_token")
         self._refresh_token = session_data.get("refresh_token")
