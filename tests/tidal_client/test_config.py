@@ -18,3 +18,11 @@ def test_config_stores_credentials():
 
     assert config.client_id == "my_id"
     assert config.client_secret == "my_secret"
+
+
+def test_config_has_request_defaults():
+    """Config should provide default values for requests"""
+    config = Config(client_id="test_id", client_secret="test_secret")
+
+    assert config.default_timeout == 30
+    assert config.default_limit == 50
