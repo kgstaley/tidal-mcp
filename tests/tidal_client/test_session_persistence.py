@@ -1,4 +1,5 @@
 """Tests for session save/load functionality"""
+
 import json
 import os
 import stat
