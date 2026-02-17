@@ -19,6 +19,7 @@ from tidal_client.exceptions import (
 )
 
 if TYPE_CHECKING:
+    from tidal_client.endpoints.albums import AlbumsEndpoint
     from tidal_client.endpoints.artists import ArtistsEndpoint
 
 
@@ -36,6 +37,7 @@ class TidalSession:
         self._user_id: str | None = None
 
         # Lazy-loaded endpoints
+        self._albums: AlbumsEndpoint | None = None
         self._artists: ArtistsEndpoint | None = None
 
     def _is_token_valid(self) -> bool:
@@ -357,6 +359,19 @@ class TidalSession:
         expires_at_str = session_data.get("expires_at")
         if expires_at_str:
             self._token_expires_at = datetime.fromisoformat(expires_at_str)
+
+    @property
+    def albums(self) -> "AlbumsEndpoint":
+        """Lazy-load albums endpoint
+
+        Returns:
+            AlbumsEndpoint instance for album operations
+        """
+        if not self._albums:
+            from tidal_client.endpoints.albums import AlbumsEndpoint
+
+            self._albums = AlbumsEndpoint(self)
+        return self._albums
 
     @property
     def artists(self) -> "ArtistsEndpoint":
