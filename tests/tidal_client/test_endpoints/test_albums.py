@@ -1,4 +1,5 @@
 """Tests for AlbumsEndpoint"""
+import pytest
 import responses
 
 from tidal_client.config import Config
@@ -164,3 +165,14 @@ def test_get_review_returns_none_when_missing():
     _, endpoint = _make_session()
     result = endpoint.get_review("456")
     assert result is None
+
+
+@responses.activate
+def test_get_album_raises_not_found_on_404():
+    """get() should raise NotFoundError when API returns 404"""
+    from tidal_client.exceptions import NotFoundError
+
+    responses.add(responses.GET, "https://api.tidal.com/v1/albums/000", status=404, json={"error": "not found"})
+    _, endpoint = _make_session()
+    with pytest.raises(NotFoundError):
+        endpoint.get("000")
