@@ -248,3 +248,66 @@ class TestGetTrackLyrics:
 
         response = client.get("/api/tracks/999/lyrics")
         assert response.status_code == 404
+
+
+class TestCustomClientAlbums:
+    """Tests for album routes using custom client (TIDAL_USE_CUSTOM_CLIENT=true)."""
+
+    def test_get_album_custom_client(self, client, mock_session_file, mocker, monkeypatch):
+        """Custom client: get_album returns formatted album with review."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        mock_session = MagicMock()
+        mock_session._is_token_valid.return_value = True
+        mock_session.albums.get.return_value = {
+            "id": "alb1",
+            "title": "Test Album",
+            "artist": {"name": "Test Artist"},
+            "cover": None,
+            "releaseDate": "2024-01-01",
+            "numberOfTracks": 10,
+            "duration": 3600,
+            "explicit": False,
+            "popularity": 75,
+        }
+        mock_session.albums.get_review.return_value = "Great album."
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
+
+        response = client.get("/api/albums/alb1")
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["id"] == "alb1"
+        assert data["name"] == "Test Album"
+        assert data["review"] == "Great album."
+
+    def test_get_album_tracks_custom_client(self, client, mock_session_file, mocker, monkeypatch):
+        """Custom client: get_album_tracks returns formatted track list."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        mock_session = MagicMock()
+        mock_session._is_token_valid.return_value = True
+        mock_session.albums.get_tracks.return_value = [
+            {
+                "id": "t1",
+                "title": "Track 1",
+                "artist": {"name": "Artist"},
+                "album": {"title": "Album"},
+                "duration": 240,
+            },
+        ]
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
+
+        response = client.get("/api/albums/alb1/tracks")
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["total"] == 1
+        assert data["tracks"][0]["title"] == "Track 1"
+
+    def test_get_album_review_not_found_custom_client(self, client, mock_session_file, mocker, monkeypatch):
+        """Custom client: get_album_review returns 404 when review is None."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        mock_session = MagicMock()
+        mock_session._is_token_valid.return_value = True
+        mock_session.albums.get_review.return_value = None
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
+
+        response = client.get("/api/albums/alb1/review")
+        assert response.status_code == 404
