@@ -21,6 +21,7 @@ from tidal_client.exceptions import (
 if TYPE_CHECKING:
     from tidal_client.endpoints.albums import AlbumsEndpoint
     from tidal_client.endpoints.artists import ArtistsEndpoint
+    from tidal_client.endpoints.tracks import TracksEndpoint
 
 
 class TidalSession:
@@ -39,6 +40,7 @@ class TidalSession:
         # Lazy-loaded endpoints
         self._albums: AlbumsEndpoint | None = None
         self._artists: ArtistsEndpoint | None = None
+        self._tracks: TracksEndpoint | None = None
 
     def _is_token_valid(self) -> bool:
         """Check if current access token is valid and not expired"""
@@ -385,3 +387,16 @@ class TidalSession:
 
             self._artists = ArtistsEndpoint(self)
         return self._artists
+
+    @property
+    def tracks(self) -> "TracksEndpoint":
+        """Lazy-load tracks endpoint
+
+        Returns:
+            TracksEndpoint instance for track operations
+        """
+        if not self._tracks:
+            from tidal_client.endpoints.tracks import TracksEndpoint
+
+            self._tracks = TracksEndpoint(self)
+        return self._tracks
