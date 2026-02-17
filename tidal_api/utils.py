@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 MAX_LIMIT = 5000
 DEFAULT_PAGE_SIZE = 50
 
+# Standard image dimensions for TIDAL CDN thumbnails
+ARTIST_IMAGE_DIM = 320
+ALBUM_IMAGE_DIM = 640
+
 # Session file path
 token_path = os.path.join(tempfile.gettempdir(), "tidal-session-oauth.json")
 SESSION_FILE = Path(token_path)
@@ -150,6 +154,70 @@ def tidal_playlist_url(playlist_id) -> str:
 def tidal_video_url(video_id) -> str:
     """Build TIDAL video URL."""
     return f"https://tidal.com/browse/video/{video_id}"
+
+
+def tidal_image_url(uuid: str | None, dim: int) -> str | None:
+    """Build TIDAL CDN image URL from a picture UUID.
+
+    TIDAL returns picture UUIDs (e.g., "abc1-de23-..."). The CDN URL is
+    formed by replacing hyphens with slashes and appending {dim}x{dim}.jpg.
+
+    Args:
+        uuid: TIDAL picture UUID string, or None
+        dim: Image dimension (e.g. 320 for artists, 640 for albums)
+
+    Returns:
+        Full CDN URL string, or None if uuid is falsy
+    """
+    if not uuid:
+        return None
+    path = uuid.replace("-", "/")
+    return f"https://resources.tidal.com/images/{path}/{dim}x{dim}.jpg"
+
+
+def format_track_from_dict(track_data: dict) -> dict:
+    """Format a custom-client track dict into the standard response shape.
+
+    Args:
+        track_data: Raw track dict from custom client API
+
+    Returns:
+        Standardized track dict matching format_track_data() output shape
+    """
+    artist = track_data.get("artist") or {}
+    album = track_data.get("album") or {}
+    track_id = track_data.get("id", "")
+    return {
+        "id": track_id,
+        "title": track_data.get("title"),
+        "artist": artist.get("name", "Unknown"),
+        "album": album.get("title", "Unknown"),
+        "duration": track_data.get("duration"),
+        "url": tidal_track_url(track_id),
+    }
+
+
+def format_album_from_dict(album_data: dict) -> dict:
+    """Format a custom-client album dict into the standard response shape.
+
+    Args:
+        album_data: Raw album dict from custom client API
+
+    Returns:
+        Standardized album dict matching format_album_data() output shape
+    """
+    artist = album_data.get("artist") or {}
+    album_id = album_data.get("id", "")
+    return {
+        "id": album_id,
+        "name": album_data.get("title"),
+        "artist": artist.get("name", "Unknown"),
+        "cover_url": tidal_image_url(album_data.get("cover"), ALBUM_IMAGE_DIM),
+        "release_date": str(album_data["releaseDate"]) if album_data.get("releaseDate") else None,
+        "num_tracks": album_data.get("numberOfTracks"),
+        "duration": album_data.get("duration"),
+        "url": tidal_album_url(album_id),
+    }
 
 
 def format_user_playlist_data(playlist) -> dict:
