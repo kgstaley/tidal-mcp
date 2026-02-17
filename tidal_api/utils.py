@@ -19,10 +19,41 @@ SESSION_FILE = Path(token_path)
 
 
 def _create_tidal_session():
-    """Create a new BrowserSession instance. Lazy import to avoid circular deps."""
-    from tidal_api.browser_session import BrowserSession
+    """
+    Create TIDAL session - BrowserSession or custom client based on env var.
 
-    return BrowserSession()
+    Returns:
+        Either BrowserSession (tidalapi) or TidalSession (custom client)
+
+    Raises:
+        ValueError: If custom client is enabled without credentials
+    """
+    use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
+
+    if use_custom:
+        # Use custom client
+        from tidal_client.config import Config
+        from tidal_client.session import TidalSession
+
+        client_id = os.getenv("TIDAL_CLIENT_ID")
+        client_secret = os.getenv("TIDAL_CLIENT_SECRET")
+
+        if not client_id or not client_secret:
+            raise ValueError("TIDAL_CLIENT_ID and TIDAL_CLIENT_SECRET required for custom client")
+
+        config = Config(client_id=client_id, client_secret=client_secret)
+        session = TidalSession(config)
+
+        # Load saved session if exists
+        if SESSION_FILE.exists():
+            session.load_session(SESSION_FILE)
+
+        return session
+    else:
+        # Use existing BrowserSession (tidalapi wrapper)
+        from tidal_api.browser_session import BrowserSession
+
+        return BrowserSession()
 
 
 def requires_tidal_auth(f):
@@ -30,6 +61,10 @@ def requires_tidal_auth(f):
     Decorator to ensure routes have an authenticated TIDAL session.
     Returns 401 if not authenticated.
     Passes the authenticated session to the decorated function.
+
+    Supports both BrowserSession (tidalapi) and TidalSession (custom client):
+    - BrowserSession: calls login_session_file_auto() to load + validate
+    - TidalSession: session already loaded in _create_tidal_session(), checks _is_token_valid()
     """
 
     @functools.wraps(f)
@@ -38,9 +73,13 @@ def requires_tidal_auth(f):
             return jsonify({"error": "Not authenticated"}), 401
 
         session = _create_tidal_session()
-        login_success = session.login_session_file_auto(SESSION_FILE)
 
-        if not login_success:
+        # Duck-type: BrowserSession has login_session_file_auto; TidalSession does not
+        if hasattr(session, "login_session_file_auto"):
+            login_success = session.login_session_file_auto(SESSION_FILE)
+            if not login_success:
+                return jsonify({"error": "Authentication failed"}), 401
+        elif not session._is_token_valid():
             return jsonify({"error": "Authentication failed"}), 401
 
         kwargs["session"] = session
