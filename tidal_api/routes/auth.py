@@ -4,8 +4,7 @@ import logging
 
 from flask import Blueprint, jsonify
 
-from tidal_api.browser_session import BrowserSession
-from tidal_api.utils import SESSION_FILE
+from tidal_api.utils import SESSION_FILE, _create_tidal_session
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +15,10 @@ auth_bp = Blueprint("auth", __name__)
 def login():
     """
     Initiates the TIDAL authentication process.
-    Automatically opens a browser for the user to login to their TIDAL account.
+    Uses BrowserSession (tidalapi) for browser-based OAuth login.
     """
+    from tidal_api.browser_session import BrowserSession
+
     session = BrowserSession()
 
     def log_message(msg):
@@ -44,20 +45,29 @@ def login():
 def auth_status():
     """
     Check if there's an active authenticated session.
+    Supports both BrowserSession (tidalapi) and TidalSession (custom client).
     """
     if not SESSION_FILE.exists():
         return jsonify({"authenticated": False, "message": "No session file found"})
 
-    session = BrowserSession()
-    login_success = session.login_session_file_auto(SESSION_FILE)
+    session = _create_tidal_session()
 
-    if login_success:
+    # Duck-type: BrowserSession has login_session_file_auto; TidalSession does not
+    if hasattr(session, "login_session_file_auto"):
+        login_success = session.login_session_file_auto(SESSION_FILE)
+        if not login_success:
+            return jsonify({"authenticated": False, "message": "Invalid or expired session"})
+
         user_info = {
             "id": session.user.id,
             "username": session.user.username if hasattr(session.user, "username") else "N/A",
             "email": session.user.email if hasattr(session.user, "email") else "N/A",
         }
-
         return jsonify({"authenticated": True, "message": "Valid TIDAL session", "user": user_info})
     else:
-        return jsonify({"authenticated": False, "message": "Invalid or expired session"})
+        # Custom client: session loaded in _create_tidal_session(), check token validity
+        if not session._is_token_valid():
+            return jsonify({"authenticated": False, "message": "Invalid or expired session"})
+
+        user_info = {"id": session._user_id}
+        return jsonify({"authenticated": True, "message": "Valid TIDAL session", "user": user_info})
