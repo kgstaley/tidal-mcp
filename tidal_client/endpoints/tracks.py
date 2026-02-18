@@ -54,11 +54,14 @@ class TracksEndpoint:
             limit: Maximum number of recommendations to return (default 10)
 
         Returns:
-            List of recommended track dicts.
+            List of recommended track dicts, or empty list if track not found.
         """
-        result = self.session.request(
-            "GET",
-            f"tracks/{track_id}/recommendations",
-            params={"limit": limit},
-        )
+        try:
+            result = self.session.request(
+                "GET",
+                f"tracks/{track_id}/recommendations",
+                params={"limit": limit},
+            )
+        except NotFoundError:
+            return []
         return result.get("items", [])

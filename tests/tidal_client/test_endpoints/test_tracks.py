@@ -4,6 +4,7 @@ import responses
 
 from tidal_client.config import Config
 from tidal_client.endpoints.tracks import TracksEndpoint
+from tidal_client.exceptions import NotFoundError
 from tidal_client.session import TidalSession
 
 
@@ -56,8 +57,6 @@ def test_get_track_includes_authorization():
 @responses.activate
 def test_get_track_raises_not_found_on_404():
     """get() should raise NotFoundError when API returns 404"""
-    from tidal_client.exceptions import NotFoundError
-
     responses.add(responses.GET, "https://api.tidal.com/v1/tracks/000", status=404, json={"error": "not found"})
     _, endpoint = _make_session()
     with pytest.raises(NotFoundError):
@@ -176,6 +175,20 @@ def test_get_recommendations_returns_empty_list_when_no_items():
     )
     _, endpoint = _make_session()
     result = endpoint.get_recommendations("123")
+    assert result == []
+
+
+@responses.activate
+def test_get_recommendations_returns_empty_list_on_404():
+    """get_recommendations() should return empty list when API returns 404"""
+    responses.add(
+        responses.GET,
+        "https://api.tidal.com/v1/tracks/000/recommendations",
+        status=404,
+        json={"error": "not found"},
+    )
+    _, endpoint = _make_session()
+    result = endpoint.get_recommendations("000")
     assert result == []
 
 
