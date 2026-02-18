@@ -20,7 +20,7 @@ from tidal_api.utils import (
     handle_endpoint_errors,
     requires_tidal_auth,
 )
-from tidal_client.exceptions import TidalAPIError
+from tidal_client.exceptions import NotFoundError, TidalAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ def get_track(track_id: str, session):
     if use_custom:
         try:
             track_data = session.tracks.get(track_id)
-        except TidalAPIError as e:
+        except NotFoundError as e:
             return jsonify({"error": str(e)}), 404
         return jsonify(format_track_from_dict(track_data))
     else:  # tidalapi (BrowserSession) path
