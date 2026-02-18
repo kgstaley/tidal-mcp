@@ -3,6 +3,8 @@
 import json
 from unittest.mock import MagicMock
 
+from tidal_client.exceptions import NotFoundError
+
 from tests.conftest import MockAlbum, MockLyrics, MockTrack
 
 
@@ -341,8 +343,6 @@ class TestCustomClientTracks:
 
     def test_get_track_not_found(self, client, mock_session_file, mocker, monkeypatch):
         """Custom client: get_track returns 404 when track not found."""
-        from tidal_client.exceptions import NotFoundError
-
         monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
         mock_session = MagicMock()
         mock_session._is_token_valid.return_value = True
@@ -351,6 +351,8 @@ class TestCustomClientTracks:
 
         response = client.get("/api/tracks/trk999")
         assert response.status_code == 404
+        data = json.loads(response.data)
+        assert "error" in data
 
     def test_get_track_not_authenticated(self, client):
         """Custom client: get_track returns 401 when session file is absent."""
