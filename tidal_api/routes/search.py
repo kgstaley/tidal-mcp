@@ -58,6 +58,7 @@ def search(session: BrowserSession):
 
         results = session.search.search(query, types=types_list, limit=limit)
 
+        # top_hit is not supported by the custom client API; only returned in tidalapi mode
         return jsonify(
             {
                 "query": query,
