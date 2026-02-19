@@ -6,36 +6,24 @@ import os
 from flask import Blueprint, jsonify, request
 
 from tidal_api.utils import (
-    ARTIST_IMAGE_DIM,
     bound_limit,
     fetch_all_paginated,
     format_album_data,
     format_album_from_dict,
     format_artist_data,
     format_artist_detail_data,
+    format_artist_from_dict,
     format_track_data,
     format_track_from_dict,
     get_entity_or_404,
     handle_endpoint_errors,
     requires_tidal_auth,
-    tidal_artist_url,
-    tidal_image_url,
 )
 from tidal_client.exceptions import TidalAPIError
 
 logger = logging.getLogger(__name__)
 
 artists_bp = Blueprint("artists", __name__)
-
-
-def _format_artist_dict(artist_data: dict) -> dict:
-    """Format a custom-client artist dict into the standard response shape."""
-    return {
-        "id": artist_data.get("id"),
-        "name": artist_data.get("name"),
-        "picture_url": tidal_image_url(artist_data.get("picture"), ARTIST_IMAGE_DIM),
-        "url": tidal_artist_url(artist_data.get("id", "")),
-    }
 
 
 @artists_bp.route("/api/artists/<artist_id>", methods=["GET"])
@@ -54,7 +42,7 @@ def get_artist(artist_id: str, session):
 
         return jsonify(
             {
-                **_format_artist_dict(artist_data),
+                **format_artist_from_dict(artist_data),
                 "bio": bio,
                 "roles": artist_data.get("artistRoles", []),
                 "popularity": artist_data.get("popularity"),
@@ -148,7 +136,7 @@ def get_similar_artists(artist_id: str, session):
     use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
     if use_custom:
         similar = session.artists.get_similar(artist_id)
-        artist_list = [_format_artist_dict(a) for a in similar]
+        artist_list = [format_artist_from_dict(a) for a in similar]
     else:  # tidalapi (BrowserSession) path
         artist, error = get_entity_or_404(session, "artist", artist_id)
         if error:
