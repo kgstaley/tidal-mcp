@@ -127,3 +127,118 @@ class TestGetMixTracks:
         """Test fetching mix tracks when not authenticated."""
         response = client.get("/api/mixes/mix-1/tracks")
         assert response.status_code == 401
+
+
+class TestGetUserMixesCustomClient:
+    """Tests for GET /api/mixes with TIDAL_USE_CUSTOM_CLIENT=true."""
+
+    def test_get_user_mixes_success_custom_client(self, client, mock_session_file, mocker, monkeypatch):
+        """Test successfully fetching user mixes via custom client."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        monkeypatch.setenv("TIDAL_CLIENT_ID", "test_id")
+        monkeypatch.setenv("TIDAL_CLIENT_SECRET", "test_secret")
+        mock_custom_session = MagicMock()
+        mock_custom_session._is_token_valid.return_value = True
+        mock_custom_session.mixes.get_user_mixes.return_value = [
+            {
+                "id": "mix-1",
+                "title": "Daily Mix 1",
+                "subTitle": "Based on your plays",
+                "shortSubtitle": "Daily",
+                "mixType": "DAILY_MIX",
+                "images": None,
+            },
+            {
+                "id": "mix-2",
+                "title": "Discovery Mix",
+                "subTitle": "New music",
+                "shortSubtitle": "Discovery",
+                "mixType": "DISCOVERY_MIX",
+                "images": None,
+            },
+        ]
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_custom_session)
+        response = client.get("/api/mixes")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 2
+        assert len(data["mixes"]) == 2
+        assert data["mixes"][0]["id"] == "mix-1"
+        assert data["mixes"][1]["id"] == "mix-2"
+
+    def test_get_user_mixes_empty_custom_client(self, client, mock_session_file, mocker, monkeypatch):
+        """Test fetching user mixes returns empty list via custom client."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        monkeypatch.setenv("TIDAL_CLIENT_ID", "test_id")
+        monkeypatch.setenv("TIDAL_CLIENT_SECRET", "test_secret")
+        mock_custom_session = MagicMock()
+        mock_custom_session._is_token_valid.return_value = True
+        mock_custom_session.mixes.get_user_mixes.return_value = []
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_custom_session)
+        response = client.get("/api/mixes")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 0
+        assert data["mixes"] == []
+
+    def test_get_user_mixes_not_authenticated_custom_client(self, client, monkeypatch):
+        """Test fetching user mixes when not authenticated via custom client."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        response = client.get("/api/mixes")
+        assert response.status_code == 401
+
+
+class TestGetMixTracksCustomClient:
+    """Tests for GET /api/mixes/<id>/tracks with TIDAL_USE_CUSTOM_CLIENT=true."""
+
+    def test_get_mix_tracks_success_custom_client(self, client, mock_session_file, mocker, monkeypatch):
+        """Test successfully fetching mix tracks via custom client."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        monkeypatch.setenv("TIDAL_CLIENT_ID", "test_id")
+        monkeypatch.setenv("TIDAL_CLIENT_SECRET", "test_secret")
+        mock_custom_session = MagicMock()
+        mock_custom_session._is_token_valid.return_value = True
+        mock_custom_session.mixes.get_mix_tracks.return_value = [
+            {
+                "id": 1,
+                "title": "Track One",
+                "duration": 200,
+                "artist": {"id": "a1", "name": "Artist A"},
+                "album": {"id": "al1", "title": "Album A"},
+            },
+            {
+                "id": 2,
+                "title": "Track Two",
+                "duration": 180,
+                "artist": {"id": "a2", "name": "Artist B"},
+                "album": {"id": "al2", "title": "Album B"},
+            },
+        ]
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_custom_session)
+        response = client.get("/api/mixes/mix-1/tracks")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 2
+        assert len(data["tracks"]) == 2
+        mock_custom_session.mixes.get_mix_tracks.assert_called_once_with("mix-1")
+
+    def test_get_mix_tracks_empty_custom_client(self, client, mock_session_file, mocker, monkeypatch):
+        """Test fetching mix tracks returns empty list when mix not found via custom client."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        monkeypatch.setenv("TIDAL_CLIENT_ID", "test_id")
+        monkeypatch.setenv("TIDAL_CLIENT_SECRET", "test_secret")
+        mock_custom_session = MagicMock()
+        mock_custom_session._is_token_valid.return_value = True
+        mock_custom_session.mixes.get_mix_tracks.return_value = []
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_custom_session)
+        response = client.get("/api/mixes/missing-mix/tracks")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["count"] == 0
+        assert data["tracks"] == []
+
+    def test_get_mix_tracks_not_authenticated_custom_client(self, client, monkeypatch):
+        """Test fetching mix tracks when not authenticated via custom client."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        response = client.get("/api/mixes/mix-1/tracks")
+        assert response.status_code == 401
