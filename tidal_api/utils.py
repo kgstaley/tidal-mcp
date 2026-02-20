@@ -703,6 +703,34 @@ def format_mix_data(mix) -> dict:
     }
 
 
+def format_mix_from_dict(mix_data: dict) -> dict:
+    """Format a raw TIDAL API mix dict into the standard response shape.
+
+    Produces the same output shape as format_mix_data() for object-based mixes.
+
+    Args:
+        mix_data: Raw mix dict from TIDAL API (id, title, subTitle, images, etc.)
+
+    Returns:
+        Standardized mix dict with id, title, sub_title, mix_type, image_url
+    """
+    images = mix_data.get("images") or {}
+    image_url = None
+    if images:
+        medium = images.get("MEDIUM") or {}
+        image_url = medium.get("url")
+
+    return {
+        "id": mix_data.get("id", ""),
+        "title": mix_data.get("title"),
+        "sub_title": mix_data.get("subTitle"),
+        "short_subtitle": mix_data.get("shortSubtitle"),
+        "mix_type": mix_data.get("mixType"),
+        "image_url": image_url,
+        "updated": None,  # Not available in raw API mix listings
+    }
+
+
 def format_page_link_data(page_link) -> dict:
     """
     Format a PageLink object into a standardized dictionary.
