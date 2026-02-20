@@ -239,9 +239,7 @@ def test_request_uses_valid_token_without_refresh(mock_config):
 def test_request_raises_error_when_refresh_fails(mock_config):
     """request should raise error if token refresh fails"""
     # Mock failed refresh
-    responses.add(
-        responses.POST, "https://auth.tidal.com/v1/oauth2/token", json={"error": "invalid_grant"}, status=400
-    )
+    responses.add(responses.POST, "https://auth.tidal.com/v1/oauth2/token", json={"error": "invalid_grant"}, status=400)
 
     session = TidalSession(mock_config)
     # Set expired token
