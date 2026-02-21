@@ -21,6 +21,7 @@ from tidal_client.exceptions import (
 if TYPE_CHECKING:
     from tidal_client.endpoints.albums import AlbumsEndpoint
     from tidal_client.endpoints.artists import ArtistsEndpoint
+    from tidal_client.endpoints.search import SearchEndpoint
     from tidal_client.endpoints.tracks import TracksEndpoint
 
 
@@ -41,6 +42,7 @@ class TidalSession:
         self._albums: AlbumsEndpoint | None = None
         self._artists: ArtistsEndpoint | None = None
         self._tracks: TracksEndpoint | None = None
+        self._search: SearchEndpoint | None = None
 
     def _is_token_valid(self) -> bool:
         """Check if current access token is valid and not expired"""
@@ -400,3 +402,16 @@ class TidalSession:
 
             self._tracks = TracksEndpoint(self)
         return self._tracks
+
+    @property
+    def search(self) -> "SearchEndpoint":
+        """Lazy-load search endpoint
+
+        Returns:
+            SearchEndpoint instance for catalog search operations
+        """
+        if not self._search:
+            from tidal_client.endpoints.search import SearchEndpoint
+
+            self._search = SearchEndpoint(self)
+        return self._search

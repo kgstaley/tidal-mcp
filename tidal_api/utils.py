@@ -220,6 +220,65 @@ def format_album_from_dict(album_data: dict) -> dict:
     }
 
 
+def format_artist_from_dict(artist_data: dict) -> dict:
+    """Format a custom-client artist dict into the standard response shape.
+
+    Args:
+        artist_data: Raw artist dict from custom client API
+
+    Returns:
+        Standardized artist dict matching format_artist_data() output shape
+    """
+    artist_id = artist_data.get("id", "")
+    return {
+        "id": artist_id,
+        "name": artist_data.get("name"),
+        "picture_url": tidal_image_url(artist_data.get("picture"), ARTIST_IMAGE_DIM),
+        "url": tidal_artist_url(artist_id),
+    }
+
+
+def format_playlist_from_dict(playlist_data: dict) -> dict:
+    """Format a custom-client playlist dict into the standard response shape.
+
+    Args:
+        playlist_data: Raw playlist dict from custom client API
+
+    Returns:
+        Standardized playlist dict matching format_playlist_search_data() output shape
+    """
+    playlist_id = playlist_data.get("uuid", "")
+    creator = playlist_data.get("creator") or {}
+    return {
+        "id": playlist_id,
+        "title": playlist_data.get("title"),
+        "creator": creator.get("name"),
+        "track_count": playlist_data.get("numberOfTracks", 0),
+        "duration": playlist_data.get("duration", 0),
+        "url": tidal_playlist_url(playlist_id),
+    }
+
+
+def format_video_from_dict(video_data: dict) -> dict:
+    """Format a custom-client video dict into the standard response shape.
+
+    Args:
+        video_data: Raw video dict from custom client API
+
+    Returns:
+        Standardized video dict matching format_video_data() output shape
+    """
+    video_id = video_data.get("id", "")
+    artist = video_data.get("artist") or {}
+    return {
+        "id": video_id,
+        "title": video_data.get("title"),
+        "artist": artist.get("name", "Unknown"),
+        "duration": video_data.get("duration"),
+        "url": tidal_video_url(video_id),
+    }
+
+
 def format_user_playlist_data(playlist) -> dict:
     """
     Format a user playlist object into a standardized dictionary.
