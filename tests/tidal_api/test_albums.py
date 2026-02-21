@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock
 
 from tests.conftest import MockAlbum, MockLyrics, MockTrack
+from tidal_client.exceptions import NotFoundError
 
 
 class TestGetAlbum:
@@ -311,3 +312,90 @@ class TestCustomClientAlbums:
 
         response = client.get("/api/albums/alb1/review")
         assert response.status_code == 404
+
+
+class TestCustomClientTracks:
+    """Tests for GET /api/tracks/<id> endpoint using custom client (TIDAL_USE_CUSTOM_CLIENT=true)."""
+
+    def test_get_track_success(self, client, mock_session_file, mocker, monkeypatch):
+        """Custom client: get_track returns formatted track data."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        mock_session = MagicMock()
+        mock_session._is_token_valid.return_value = True
+        mock_session.tracks.get.return_value = {
+            "id": "trk1",
+            "title": "Test Track",
+            "artist": {"name": "Test Artist"},
+            "album": {"title": "Test Album"},
+            "duration": 240,
+            "trackNumber": 1,
+            "explicit": False,
+        }
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
+
+        response = client.get("/api/tracks/trk1")
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["id"] == "trk1"
+        assert data["title"] == "Test Track"
+        mock_session.tracks.get.assert_called_once_with("trk1")
+
+    def test_get_track_not_found(self, client, mock_session_file, mocker, monkeypatch):
+        """Custom client: get_track returns 404 when track not found."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        mock_session = MagicMock()
+        mock_session._is_token_valid.return_value = True
+        mock_session.tracks.get.side_effect = NotFoundError("track not found")
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
+
+        response = client.get("/api/tracks/trk999")
+        assert response.status_code == 404
+        data = json.loads(response.data)
+        assert "error" in data
+
+    def test_get_track_not_authenticated(self, client):
+        """Custom client: get_track returns 401 when session file is absent."""
+        response = client.get("/api/tracks/trk1")
+        assert response.status_code == 401
+
+
+class TestCustomClientTrackLyrics:
+    """Tests for GET /api/tracks/<id>/lyrics endpoint using custom client (TIDAL_USE_CUSTOM_CLIENT=true)."""
+
+    def test_get_track_lyrics_success(self, client, mock_session_file, mocker, monkeypatch):
+        """Custom client: get_track_lyrics returns formatted lyrics data."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        mock_session = MagicMock()
+        mock_session._is_token_valid.return_value = True
+        mock_session.tracks.get_lyrics.return_value = {
+            "text": "Hello world lyrics",
+            "subtitles": "[00:00.00] Hello world",
+            "provider": "Musixmatch",
+        }
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
+
+        response = client.get("/api/tracks/trk1/lyrics")
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["track_id"] == "trk1"
+        assert data["text"] == "Hello world lyrics"
+        assert data["provider"] == "Musixmatch"
+        mock_session.tracks.get_lyrics.assert_called_once_with("trk1")
+
+    def test_get_track_lyrics_not_found(self, client, mock_session_file, mocker, monkeypatch):
+        """Custom client: get_track_lyrics returns 404 when lyrics returns None."""
+        monkeypatch.setenv("TIDAL_USE_CUSTOM_CLIENT", "true")
+        mock_session = MagicMock()
+        mock_session._is_token_valid.return_value = True
+        mock_session.tracks.get_lyrics.return_value = None
+        mocker.patch("tidal_api.utils._create_tidal_session", return_value=mock_session)
+
+        response = client.get("/api/tracks/trk1/lyrics")
+        assert response.status_code == 404
+        data = json.loads(response.data)
+        assert "lyrics not found" in data["error"].lower()
+
+    def test_get_track_lyrics_not_authenticated(self, client):
+        """Custom client: get_track_lyrics returns 401 when session file is absent."""
+        response = client.get("/api/tracks/trk1/lyrics")
+        assert response.status_code == 401

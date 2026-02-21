@@ -20,7 +20,7 @@ from tidal_api.utils import (
     handle_endpoint_errors,
     requires_tidal_auth,
 )
-from tidal_client.exceptions import TidalAPIError
+from tidal_client.exceptions import NotFoundError, TidalAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -137,17 +137,24 @@ def get_album_review(album_id: str, session):
         return jsonify({"album_id": album_id, "review": review})
 
 
-# Track routes — tidalapi path only until session.tracks is implemented (Task 10)
+# Track routes
 @albums_bp.route("/api/tracks/<track_id>", methods=["GET"])
 @requires_tidal_auth
 @handle_endpoint_errors("fetching track info")
 def get_track(track_id: str, session):
     """Get detailed information about a track."""
-    track, error = get_entity_or_404(session, "track", track_id)
-    if error:
-        return error
-
-    return jsonify(format_track_detail_data(track))
+    use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
+    if use_custom:
+        try:
+            track_data = session.tracks.get(track_id)
+        except NotFoundError as e:
+            return jsonify({"error": str(e)}), 404
+        return jsonify(format_track_from_dict(track_data))
+    else:  # tidalapi (BrowserSession) path
+        track, error = get_entity_or_404(session, "track", track_id)
+        if error:
+            return error
+        return jsonify(format_track_detail_data(track))
 
 
 @albums_bp.route("/api/tracks/<track_id>/lyrics", methods=["GET"])
@@ -155,13 +162,20 @@ def get_track(track_id: str, session):
 @handle_endpoint_errors("fetching track lyrics")
 def get_track_lyrics(track_id: str, session):
     """Get lyrics for a track."""
-    track, error = get_entity_or_404(session, "track", track_id)
-    if error:
-        return error
+    use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
+    if use_custom:
+        lyrics = session.tracks.get_lyrics(track_id)
+        if lyrics is None:
+            return jsonify({"error": "Lyrics not found"}), 404
+        return jsonify({"track_id": track_id, **lyrics})
+    else:  # tidalapi (BrowserSession) path
+        track, error = get_entity_or_404(session, "track", track_id)
+        if error:
+            return error
 
-    try:
-        lyrics = track.lyrics()
-    except Exception:
-        return jsonify({"error": "No lyrics available for this track"}), 404
+        try:
+            lyrics = track.lyrics()
+        except Exception:
+            return jsonify({"error": "No lyrics available for this track"}), 404
 
-    return jsonify({"track_id": track_id, **format_lyrics_data(lyrics)})
+        return jsonify({"track_id": track_id, **format_lyrics_data(lyrics)})
