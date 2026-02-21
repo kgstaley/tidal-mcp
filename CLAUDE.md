@@ -93,3 +93,21 @@ Key gotchas discovered from the installed library source:
 - `session.search()` returns a `TypedDict` (dict), not an object — use `results.get('key', [])` not `results.key`
 - `fetch_all_paginated` calls `fetch_fn(limit=..., offset=...)` with keyword args — pass tidalapi methods directly (no lambda wrapper needed)
 - Always check `.venv/lib/python3.10/site-packages/tidalapi/` for ground truth on method signatures
+
+## Serena MCP Maintenance
+
+After making API, interface, or architectural changes (new packages, renamed modules, major refactors), update the Serena project model:
+
+```bash
+# Refresh Serena's understanding of the codebase
+# (This ensures semantic navigation tools work correctly)
+# Add specific commands or process here based on Serena's documentation
+```
+
+**When to update:**
+- New Python packages added (like `tidal_client/`)
+- Module structure changes
+- Major refactors that affect imports or file organization
+- New endpoint modules or significant architectural changes
+
+This keeps Serena's semantic code navigation accurate and effective.

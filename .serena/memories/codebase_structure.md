@@ -2,6 +2,17 @@
 
 ```
 tidal-mcp/
+├── tidal_client/           # Custom TIDAL API client (replaces tidalapi)
+│   ├── __init__.py         # Package exports (TidalSession, Config, exceptions)
+│   ├── config.py           # API configuration (Config class with URLs)
+│   ├── session.py          # TidalSession class (OAuth, HTTP, token management)
+│   ├── auth.py             # OAuth functions (device flow, polling, refresh)
+│   ├── exceptions.py       # Custom exception hierarchy (TidalClientError, etc.)
+│   ├── models/             # TypedDict models for API responses
+│   │   └── __init__.py     # (empty for now, will have response models)
+│   └── endpoints/          # API endpoint modules
+│       └── __init__.py     # (empty for now, will have endpoint functions)
+│
 ├── tidal_api/              # Flask backend (HTTP server on port 5050)
 │   ├── routes/             # Flask blueprints (one per domain)
 │   │   ├── auth.py         # Authentication endpoints (login, status)
@@ -37,6 +48,12 @@ tidal-mcp/
 │
 ├── tests/                  # Nested test modules mirroring source layout
 │   ├── conftest.py         # Shared mock classes (MockArtist, MockTrack, MockAlbum, etc.)
+│   ├── tidal_client/       # TIDAL client tests
+│   │   ├── conftest.py     # Client test fixtures (mock OAuth responses, etc.)
+│   │   ├── test_config.py  # Test Config class
+│   │   ├── test_session.py # Test TidalSession class
+│   │   ├── test_auth.py    # Test OAuth functions
+│   │   └── test_exceptions.py # Test exception hierarchy
 │   ├── tidal_api/          # Flask backend tests
 │   │   ├── conftest.py     # Flask fixtures (client, mock_session_file)
 │   │   ├── test_auth.py    # Test /auth/* endpoints
