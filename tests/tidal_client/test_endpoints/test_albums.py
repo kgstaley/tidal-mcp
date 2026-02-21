@@ -1,4 +1,5 @@
 """Tests for AlbumsEndpoint"""
+
 import pytest
 import responses
 

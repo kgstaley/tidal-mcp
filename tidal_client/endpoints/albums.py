@@ -1,4 +1,5 @@
 """Albums endpoint - TIDAL API wrapper for album operations"""
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -8,7 +9,7 @@ if TYPE_CHECKING:
 class AlbumsEndpoint:
     """Handle all album-related API operations"""
 
-    def __init__(self, session: 'TidalSession'):
+    def __init__(self, session: "TidalSession"):
         """Initialize endpoint with session
 
         Args:

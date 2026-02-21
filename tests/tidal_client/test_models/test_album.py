@@ -1,4 +1,5 @@
 """Tests for Album TypedDict model"""
+
 from typing import get_type_hints
 
 from tidal_client.models.album import AlbumDict
