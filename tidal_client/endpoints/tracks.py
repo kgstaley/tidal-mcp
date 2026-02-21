@@ -1,4 +1,5 @@
 """Tracks endpoint - TIDAL API wrapper for track operations"""
+
 from typing import TYPE_CHECKING
 
 from tidal_client.exceptions import NotFoundError

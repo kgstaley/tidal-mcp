@@ -1,4 +1,5 @@
 """Tests for TracksEndpoint"""
+
 import pytest
 import responses
 

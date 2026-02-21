@@ -1,4 +1,5 @@
 """Track entity TypedDict definitions"""
+
 from typing import TypedDict
 
 
@@ -8,6 +9,7 @@ class TrackDict(TypedDict, total=False):
     All fields are optional to match TIDAL API response flexibility.
     Different endpoints return different subsets of fields.
     """
+
     # Core identification
     id: str
     title: str
@@ -33,6 +35,7 @@ class TrackDict(TypedDict, total=False):
 
 class LyricsDict(TypedDict, total=False):
     """Lyrics entity from TIDAL API lyrics endpoint"""
+
     text: str | None
     subtitles: str | None
     provider: str | None

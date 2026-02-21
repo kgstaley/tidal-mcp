@@ -1,4 +1,5 @@
 """Tests for Track TypedDict model"""
+
 from typing import get_type_hints
 
 from tidal_client.models.track import TrackDict

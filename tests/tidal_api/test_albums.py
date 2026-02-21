@@ -3,9 +3,8 @@
 import json
 from unittest.mock import MagicMock
 
-from tidal_client.exceptions import NotFoundError
-
 from tests.conftest import MockAlbum, MockLyrics, MockTrack
+from tidal_client.exceptions import NotFoundError
 
 
 class TestGetAlbum:
