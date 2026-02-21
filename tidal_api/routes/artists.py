@@ -6,39 +6,26 @@ import os
 from flask import Blueprint, jsonify, request
 
 from tidal_api.utils import (
+    ARTIST_IMAGE_DIM,
     bound_limit,
     fetch_all_paginated,
     format_album_data,
+    format_album_from_dict,
     format_artist_data,
     format_artist_detail_data,
     format_track_data,
+    format_track_from_dict,
     get_entity_or_404,
     handle_endpoint_errors,
     requires_tidal_auth,
-    tidal_album_url,
     tidal_artist_url,
-    tidal_track_url,
+    tidal_image_url,
 )
+from tidal_client.exceptions import TidalAPIError
 
 logger = logging.getLogger(__name__)
 
 artists_bp = Blueprint("artists", __name__)
-
-# Standard artist image dimensions (matching tidalapi defaults)
-_ARTIST_IMAGE_DIM = 320
-_ALBUM_IMAGE_DIM = 640
-
-
-def _image_url_from_uuid(uuid: str | None, dim: int) -> str | None:
-    """Build TIDAL CDN image URL from a picture UUID.
-
-    TIDAL returns picture UUIDs (e.g., "abc1-de23-..."). The CDN URL is
-    formed by replacing hyphens with slashes and appending {dim}x{dim}.jpg.
-    """
-    if not uuid:
-        return None
-    path = uuid.replace("-", "/")
-    return f"https://resources.tidal.com/images/{path}/{dim}x{dim}.jpg"
 
 
 def _format_artist_dict(artist_data: dict) -> dict:
@@ -46,39 +33,8 @@ def _format_artist_dict(artist_data: dict) -> dict:
     return {
         "id": artist_data.get("id"),
         "name": artist_data.get("name"),
-        "picture_url": _image_url_from_uuid(artist_data.get("picture"), _ARTIST_IMAGE_DIM),
+        "picture_url": tidal_image_url(artist_data.get("picture"), ARTIST_IMAGE_DIM),
         "url": tidal_artist_url(artist_data.get("id", "")),
-    }
-
-
-def _format_track_dict(track_data: dict) -> dict:
-    """Format a custom-client track dict into the standard response shape."""
-    artist = track_data.get("artist") or {}
-    album = track_data.get("album") or {}
-    track_id = track_data.get("id", "")
-    return {
-        "id": track_id,
-        "title": track_data.get("title"),
-        "artist": artist.get("name", "Unknown"),
-        "album": album.get("title", "Unknown"),
-        "duration": track_data.get("duration"),
-        "url": tidal_track_url(track_id),
-    }
-
-
-def _format_album_dict(album_data: dict) -> dict:
-    """Format a custom-client album dict into the standard response shape."""
-    artist = album_data.get("artist") or {}
-    album_id = album_data.get("id", "")
-    return {
-        "id": album_id,
-        "name": album_data.get("title"),
-        "artist": artist.get("name", "Unknown"),
-        "cover_url": _image_url_from_uuid(album_data.get("cover"), _ALBUM_IMAGE_DIM),
-        "release_date": str(album_data["releaseDate"]) if album_data.get("releaseDate") else None,
-        "num_tracks": album_data.get("numberOfTracks"),
-        "duration": album_data.get("duration"),
-        "url": tidal_album_url(album_id),
     }
 
 
@@ -93,7 +49,7 @@ def get_artist(artist_id: str, session):
         bio = None
         try:
             bio = session.artists.get_bio(artist_id)
-        except Exception:
+        except TidalAPIError:
             logger.debug("Bio not available for artist %s", artist_id)
 
         return jsonify(
@@ -128,7 +84,7 @@ def get_artist_top_tracks(artist_id: str, session):
     use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
     if use_custom:
         tracks = session.artists.get_top_tracks(artist_id, limit=limit)
-        track_list = [_format_track_dict(t) for t in tracks]
+        track_list = [format_track_from_dict(t) for t in tracks]
     else:  # tidalapi (BrowserSession) path
         artist, error = get_entity_or_404(session, "artist", artist_id)
         if error:
@@ -155,7 +111,7 @@ def get_artist_albums(artist_id: str, session):
     use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
     if use_custom:
         albums = session.artists.get_albums(artist_id, filter=album_filter, limit=limit)
-        album_list = [_format_album_dict(a) for a in albums]
+        album_list = [format_album_from_dict(a) for a in albums]
     else:  # tidalapi (BrowserSession) path
         filter_method_names = {
             "albums": "get_albums",
@@ -217,7 +173,7 @@ def get_artist_radio(artist_id: str, session):
     use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
     if use_custom:
         tracks = session.artists.get_radio(artist_id, limit=limit)
-        track_list = [_format_track_dict(t) for t in tracks]
+        track_list = [format_track_from_dict(t) for t in tracks]
     else:  # tidalapi (BrowserSession) path
         artist, error = get_entity_or_404(session, "artist", artist_id)
         if error:

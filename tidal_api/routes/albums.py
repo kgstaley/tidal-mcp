@@ -1,6 +1,7 @@
 """Album and track detail routes for TIDAL API."""
 
 import logging
+import os
 
 from flask import Blueprint, jsonify, request
 from requests import HTTPError
@@ -10,17 +11,30 @@ from tidal_api.utils import (
     fetch_all_paginated,
     format_album_data,
     format_album_detail_data,
+    format_album_from_dict,
     format_lyrics_data,
     format_track_data,
     format_track_detail_data,
+    format_track_from_dict,
     get_entity_or_404,
     handle_endpoint_errors,
     requires_tidal_auth,
 )
+from tidal_client.exceptions import TidalAPIError
 
 logger = logging.getLogger(__name__)
 
 albums_bp = Blueprint("albums", __name__)
+
+
+def _format_album_detail_dict(album_data: dict, review: str | None = None) -> dict:
+    """Format a custom-client album dict with additional detail fields."""
+    return {
+        **format_album_from_dict(album_data),
+        "explicit": album_data.get("explicit"),
+        "popularity": album_data.get("popularity"),
+        "review": review,
+    }
 
 
 @albums_bp.route("/api/albums/<album_id>", methods=["GET"])
@@ -28,17 +42,28 @@ albums_bp = Blueprint("albums", __name__)
 @handle_endpoint_errors("fetching album info")
 def get_album(album_id: str, session):
     """Get detailed information about an album."""
-    album, error = get_entity_or_404(session, "album", album_id)
-    if error:
-        return error
+    use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
+    if use_custom:
+        album_data = session.albums.get(album_id)
+        review = None
+        try:
+            review = session.albums.get_review(album_id)
+        except TidalAPIError:
+            logger.debug("Review not available for album %s", album_id)
 
-    review = None
-    try:
-        review = album.review()
-    except (HTTPError, Exception):
-        logger.debug("Review not available for album %s", album_id)
+        return jsonify(_format_album_detail_dict(album_data, review=review))
+    else:  # tidalapi (BrowserSession) path
+        album, error = get_entity_or_404(session, "album", album_id)
+        if error:
+            return error
 
-    return jsonify(format_album_detail_data(album, review=review))
+        review = None
+        try:
+            review = album.review()
+        except (HTTPError, Exception):
+            logger.debug("Review not available for album %s", album_id)
+
+        return jsonify(format_album_detail_data(album, review=review))
 
 
 @albums_bp.route("/api/albums/<album_id>/tracks", methods=["GET"])
@@ -46,14 +71,19 @@ def get_album(album_id: str, session):
 @handle_endpoint_errors("fetching album tracks")
 def get_album_tracks(album_id: str, session):
     """Get tracks from an album."""
-    album, error = get_entity_or_404(session, "album", album_id)
-    if error:
-        return error
-
     limit = bound_limit(request.args.get("limit", default=50, type=int))
 
-    tracks = fetch_all_paginated(album.tracks, limit=limit)
-    track_list = [format_track_data(t) for t in tracks]
+    use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
+    if use_custom:
+        tracks = session.albums.get_tracks(album_id, limit=limit)
+        track_list = [format_track_from_dict(t) for t in tracks]
+    else:  # tidalapi (BrowserSession) path
+        album, error = get_entity_or_404(session, "album", album_id)
+        if error:
+            return error
+
+        tracks = fetch_all_paginated(album.tracks, limit=limit)
+        track_list = [format_track_data(t) for t in tracks]
 
     return jsonify({"album_id": album_id, "tracks": track_list, "total": len(track_list)})
 
@@ -63,17 +93,22 @@ def get_album_tracks(album_id: str, session):
 @handle_endpoint_errors("fetching similar albums")
 def get_similar_albums(album_id: str, session):
     """Get albums similar to the given album."""
-    album, error = get_entity_or_404(session, "album", album_id)
-    if error:
-        return error
+    use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
+    if use_custom:
+        similar = session.albums.get_similar(album_id)
+        album_list = [format_album_from_dict(a) for a in similar]
+    else:  # tidalapi (BrowserSession) path
+        album, error = get_entity_or_404(session, "album", album_id)
+        if error:
+            return error
 
-    try:
-        similar = album.similar()
-    except Exception:
-        logger.debug("Similar albums not available for album %s", album_id)
-        similar = []
+        try:
+            similar = album.similar()
+        except Exception:
+            logger.debug("Similar albums not available for album %s", album_id)
+            similar = []
 
-    album_list = [format_album_data(a) for a in similar]
+        album_list = [format_album_data(a) for a in similar]
 
     return jsonify({"album_id": album_id, "albums": album_list, "total": len(album_list)})
 
@@ -83,18 +118,26 @@ def get_similar_albums(album_id: str, session):
 @handle_endpoint_errors("fetching album review")
 def get_album_review(album_id: str, session):
     """Get the review for an album."""
-    album, error = get_entity_or_404(session, "album", album_id)
-    if error:
-        return error
+    use_custom = os.getenv("TIDAL_USE_CUSTOM_CLIENT", "false").lower() == "true"
+    if use_custom:
+        review = session.albums.get_review(album_id)
+        if review is None:
+            return jsonify({"error": "No review available for this album"}), 404
+        return jsonify({"album_id": album_id, "review": review})
+    else:  # tidalapi (BrowserSession) path
+        album, error = get_entity_or_404(session, "album", album_id)
+        if error:
+            return error
 
-    try:
-        review = album.review()
-    except (HTTPError, Exception):
-        return jsonify({"error": "No review available for this album"}), 404
+        try:
+            review = album.review()
+        except (HTTPError, Exception):
+            return jsonify({"error": "No review available for this album"}), 404
 
-    return jsonify({"album_id": album_id, "review": review})
+        return jsonify({"album_id": album_id, "review": review})
 
 
+# Track routes — tidalapi path only until session.tracks is implemented (Task 10)
 @albums_bp.route("/api/tracks/<track_id>", methods=["GET"])
 @requires_tidal_auth
 @handle_endpoint_errors("fetching track info")
