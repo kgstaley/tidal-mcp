@@ -23,7 +23,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["mcp_server", "tidal_api"]
+packages = ["mcp_server", "tidal_api", "tidal_client", "tidal_client.endpoints"]
 
 [tool.ruff]
 target-version = "py310"
