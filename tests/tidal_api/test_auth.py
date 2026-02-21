@@ -1,7 +1,7 @@
 """Tests for /api/auth Flask endpoints (dual-mode: BrowserSession + custom client)."""
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 class TestAuthStatus:

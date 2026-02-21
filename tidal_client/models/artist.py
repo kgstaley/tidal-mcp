@@ -1,4 +1,5 @@
 """Artist entity TypedDict definitions"""
+
 from typing import TypedDict
 
 
@@ -8,6 +9,7 @@ class ArtistDict(TypedDict, total=False):
     All fields are optional to match TIDAL API response flexibility.
     Different endpoints return different subsets of fields.
     """
+
     # Core identification
     id: str
     name: str

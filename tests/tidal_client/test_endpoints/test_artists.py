@@ -1,4 +1,5 @@
 """Tests for ArtistsEndpoint"""
+
 import responses
 
 from tidal_client.config import Config
@@ -95,8 +96,10 @@ def test_get_albums_uses_filter_param():
     result = endpoint.get_albums("123", filter="ep_singles")
     assert len(result) == 1
     # Verify the API filter param was sent correctly
-    assert responses.calls[0].request.url.endswith("filter=EPSSINGLES&limit=50&offset=0") or \
-           "filter=EPSSINGLES" in responses.calls[0].request.url
+    assert (
+        responses.calls[0].request.url.endswith("filter=EPSSINGLES&limit=50&offset=0")
+        or "filter=EPSSINGLES" in responses.calls[0].request.url
+    )
 
 
 @responses.activate

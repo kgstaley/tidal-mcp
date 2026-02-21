@@ -1,5 +1,6 @@
 """Artists endpoint - TIDAL API wrapper for artist operations"""
-from typing import TYPE_CHECKING, Optional
+
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from tidal_client.session import TidalSession
@@ -10,7 +11,7 @@ ALBUM_FILTERS = {"albums": "ALBUMS", "ep_singles": "EPSSINGLES", "other": "OTHER
 class ArtistsEndpoint:
     """Handle all artist-related API operations"""
 
-    def __init__(self, session: 'TidalSession'):
+    def __init__(self, session: "TidalSession"):
         """Initialize endpoint with session
 
         Args:
@@ -22,7 +23,7 @@ class ArtistsEndpoint:
         """Get artist by ID"""
         return self.session.request("GET", f"artists/{artist_id}")
 
-    def get_bio(self, artist_id: str) -> Optional[str]:
+    def get_bio(self, artist_id: str) -> str | None:
         """Get artist biography text.
 
         Returns:
